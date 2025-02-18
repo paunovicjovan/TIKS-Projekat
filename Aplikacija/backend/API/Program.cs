@@ -1,4 +1,3 @@
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -7,7 +6,17 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddScoped<TokenService>();
+var usersCollection = DbConnection.GetDatabase().GetCollection<User>("users_collection");
+var estatesCollection = DbConnection.GetDatabase().GetCollection<Estate>("estates_collection");
+var postsCollection = DbConnection.GetDatabase().GetCollection<Post>("posts_collection");
+var commentsCollection = DbConnection.GetDatabase().GetCollection<Comment>("comments_collection");
+
+builder.Services.AddSingleton(usersCollection);
+builder.Services.AddSingleton(estatesCollection);
+builder.Services.AddSingleton(postsCollection);
+builder.Services.AddSingleton(commentsCollection);
+
+builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<CommentService>();

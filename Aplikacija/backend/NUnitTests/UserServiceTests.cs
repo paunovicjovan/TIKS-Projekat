@@ -1,20 +1,58 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-
-namespace NUnitTests;
+﻿namespace NUnitTests;
 
 [TestFixture]
 public class UserServiceTests
 {
-    private UserService _userService;
-    
-    [SetUp]
-    public void Setup()
-    {
-    }
-
     [Test]
-    public void Register_ValidUser_RegistersUser()
+    //imenovanje: NazivMetodeKojaSeTestira_OcekivaniIshod_Uslov
+    public async Task Register_RegistersUser_WhenUserIsValid()
     {
-        Assert.Pass();
+        // Arrange
+        var mockUsersCollection = new Mock<IMongoCollection<User>>();
+
+        mockUsersCollection
+            .Setup(collection => collection.InsertOneAsync(It.IsAny<User>(), null, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        
+        // var mockFindFluent = new Mock<IFindFluent<User, User>>();
+        // mockFindFluent
+        //     .Setup(f => f.FirstOrDefaultAsync(It.IsAny<CancellationToken>()))
+        //     .ReturnsAsync((User?)null);
+        //
+        // mockUsersCollection
+        //     .Setup(collection => collection.Find(It.IsAny<FilterDefinition<User>>(), null))
+        //     .Returns(mockFindFluent.Object);
+        
+        var mockTokenService = new Mock<ITokenService>();
+
+        const string fakeJwt = "some-jwt";
+        mockTokenService.Setup(service => service.CreateToken(It.IsAny<User>()))
+            .Returns(fakeJwt);
+        
+        var mockServiceProvider = new Mock<IServiceProvider>();
+
+        var userService =
+            new UserService(mockUsersCollection.Object, mockTokenService.Object, mockServiceProvider.Object);
+
+        var userDto = new CreateUserDTO()
+        {
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            Password = "@Petar123",
+            PhoneNumber = "065 123 1212"
+        };
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await userService.Register(userDto);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Id, Is.Not.Null);
+        Assert.That(result.Username, Is.EqualTo(userDto.Username));
+        Assert.That(result.Email, Is.EqualTo(userDto.Email));
+        Assert.That(result.PhoneNumber, Is.EqualTo(userDto.PhoneNumber));
+        Assert.That(result.Role, Is.EqualTo(UserRole.User));
+        Assert.That(result.Token, Is.EqualTo(fakeJwt));
     }
 }

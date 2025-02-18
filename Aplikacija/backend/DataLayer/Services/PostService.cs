@@ -4,14 +4,14 @@ namespace DataLayer.Services;
 
 public class PostService
 {
-    private readonly IMongoCollection<Post> _postsCollection =
-        DbConnection.GetDatabase().GetCollection<Post>("posts_collection");
+    private readonly IMongoCollection<Post> _postsCollection;
 
     private readonly UserService _userService;
     private readonly IServiceProvider _serviceProvider;
 
-    public PostService(UserService userService, IServiceProvider serviceProvider)
+    public PostService(IMongoCollection<Post> postsCollection, UserService userService, IServiceProvider serviceProvider)
     {
+        _postsCollection = postsCollection;
         _userService = userService;
         _serviceProvider = serviceProvider;
     }

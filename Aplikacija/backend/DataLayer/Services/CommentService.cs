@@ -1,20 +1,19 @@
-﻿
-namespace DataLayer.Services;
+﻿namespace DataLayer.Services;
 
 public class CommentService
 {
-    private readonly IMongoCollection<Comment> _commentsCollection =
-        DbConnection.GetDatabase().GetCollection<Comment>("comments_collection");
-    
+    private readonly IMongoCollection<Comment> _commentsCollection;
     private readonly UserService _userService;
     private readonly PostService _postService;
 
-    public CommentService(UserService userService, PostService postService)
+    public CommentService(IMongoCollection<Comment> commentsCollection, UserService userService,
+        PostService postService)
     {
+        _commentsCollection = commentsCollection;
         _userService = userService;
         _postService = postService;
     }
-    
+
     public async Task<Result<CommentResultDTO, ErrorMessage>> CreateComment(CreateCommentDTO commentDto, string userId)
     {
         try
@@ -36,11 +35,11 @@ public class CommentService
             var userUpdateResult = await _userService.AddCommentToUser(userId, newComment.Id!);
             if (userUpdateResult.IsError)
                 return userUpdateResult.Error;
-            
+
             var userResult = await _userService.GetById(userId);
             if (userResult.IsError)
                 return userResult.Error;
-            
+
             var resultDto = new CommentResultDTO
             {
                 Id = newComment.Id!,
@@ -132,19 +131,19 @@ public class CommentService
 
             if (comment == null)
                 return "Komentar nije pronađen.".ToError();
-            
+
             var filter = Builders<Comment>.Filter.Eq(c => c.Id, commentId);
             var deleteResult = await _commentsCollection.DeleteOneAsync(filter);
-            
+
             if (deleteResult.DeletedCount <= 0)
             {
                 return "Došlo je do greške prilikom brisanja komentara.".ToError();
             }
-            
+
             var postUpdateResult = await _postService.RemoveCommentFromPost(comment.PostId, commentId);
             if (postUpdateResult.IsError)
                 return postUpdateResult.Error;
-                
+
             var userUpdateResult = await _userService.RemoveCommentFromUser(comment.AuthorId, commentId);
             if (userUpdateResult.IsError)
                 return userUpdateResult.Error;
@@ -156,5 +155,4 @@ public class CommentService
             return "Došlo je do greške prilikom brisanja komentara.".ToError();
         }
     }
-
 }

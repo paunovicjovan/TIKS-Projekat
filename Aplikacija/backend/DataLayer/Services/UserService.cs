@@ -2,15 +2,14 @@
 
 public class UserService
 {
-    private readonly IMongoCollection<User> _usersCollection =
-        DbConnection.GetDatabase().GetCollection<User>("users_collection");
-
-    private readonly PasswordHasher<User> _passwordHasher = new PasswordHasher<User>();
-    private readonly TokenService _tokenService;
+    private readonly IMongoCollection<User> _usersCollection;
+    private readonly ITokenService _tokenService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly PasswordHasher<User> _passwordHasher = new();
 
-    public UserService(TokenService tokenService, IServiceProvider serviceProvider)
+    public UserService(IMongoCollection<User> usersCollection, ITokenService tokenService, IServiceProvider serviceProvider)
     {
+        _usersCollection = usersCollection;
         _tokenService = tokenService;
         _serviceProvider = serviceProvider;
     }

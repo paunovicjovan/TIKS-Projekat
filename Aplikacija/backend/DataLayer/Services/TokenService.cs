@@ -1,6 +1,6 @@
 ﻿namespace DataLayer.Services;
 
-public class TokenService
+public class TokenService : ITokenService
 {
     private const int ExpirationMinutes = 180;
     private readonly ILogger _logger;

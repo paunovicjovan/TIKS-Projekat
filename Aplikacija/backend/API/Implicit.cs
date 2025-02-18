@@ -10,3 +10,5 @@ global using Microsoft.IdentityModel.Tokens;
 global using DataLayer.DTOs.Post;
 global using DataLayer.DTOs.Comment;
 global using Microsoft.AspNetCore.Authorization;
+global using DataLayer.Models;
+global using DataLayer.Interfaces;
