@@ -1,0 +1,38 @@
+.fields {
+    border: 3px solid #e3d5a5 !important;
+}
+
+.input_placeholder {
+    color: #85a0a9;
+}
+
+.dugme {
+    transition: 0.4s;
+    background-color: #8cc4da;
+}
+
+.dugme:hover {
+    background-color: #e3d5a5;
+}
+
+.dugme1 {
+    transition: 0.4s;
+    background-color: #8cc4da;
+}
+
+.dugme1:hover {
+    background-color: #85a0a9;
+}
+
+.dugme2 {
+    transition: 0.4s;
+    background-color: #e3d5a5;
+}
+
+.dugme2:hover {
+    background-color: #85a0a9;
+}
+
+.slova {
+    font-size: 16px;
+}

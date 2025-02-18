@@ -1,0 +1,19 @@
+.linija_ispod_dugmeta{
+    text-decoration: none;
+}
+
+.dugme1 {
+    background-color: #cf8a40;
+    font-size: 1.5rem; 
+    padding: 1rem 2rem; 
+    transition: 0.4s;
+    border-color: #cf8a40;
+}
+
+.dugme1:hover {
+    background-color: #85a0a9;
+}
+
+.slova {
+    font-size: 15px;
+}

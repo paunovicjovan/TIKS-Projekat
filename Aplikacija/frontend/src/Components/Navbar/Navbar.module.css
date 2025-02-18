@@ -1,0 +1,129 @@
+.navbarBrandContainer {
+    display: flex;
+    align-items: center;
+}
+
+.logo {
+    width: 80px;
+    height: auto;
+}
+
+.title {
+    font-size: 35px;
+    margin: 0; 
+    text-decoration: none;
+}
+  
+.proText {
+    color: #cf8a40;
+    font-weight: 600;
+}
+  
+
+.link {
+    margin-left: 30px;
+    font-weight: 600;
+    color: #2e4a70;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.link-hover {
+    position: relative;
+}
+
+.link-hover:hover {
+    color: #2e4a70;
+}
+
+.link-hover::before {
+    content: "";
+    position: absolute;
+    display: block;
+    width: 100%;
+    height: 2px;
+    bottom: 0;
+    left: 0;
+    background-color: #2e4a70;
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.link-hover:hover::before {
+    transform: scaleX(1);
+}
+
+.link:focus{
+    color: #8cc4da !important;
+}
+
+.link-hover.active {
+    color: #8cc4da !important;
+}
+
+.btn-registracija {
+    background-color: #cf8a40;
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    transition: 0.4s;
+}
+
+.btn-registracija:hover {
+    background-color: #8cc4da;
+    color: white;
+}
+
+.user-dropdown {
+    background-color: #cf8a40;
+    color: #381d2a;
+    border: none;
+}
+
+.user-dropdown:hover {
+    background-color: #8cc4da;
+    color: #fff9f0;
+}
+
+.user-dropdown:focus {
+    background-color: #8cc4da;
+    color: #fff9f0;
+}
+
+.custom-dropdown-item {
+    background-color: transparent !important;
+    color:#2e4a70 !important;
+}
+
+.custom-dropdown-item:hover,
+.custom-dropdown-item:focus,
+.custom-dropdown-item:active {
+    background-color: #8cc4da !important;
+    color: #fff9f0 !important;
+}
+
+.custom-dropdown-item1 {
+    background-color: transparent !important;
+    color:#cf8a40 !important;
+}
+
+.custom-dropdown-item1:hover,
+.custom-dropdown-item1:focus,
+.custom-dropdown-item1:active {
+    background-color: #8cc4da !important;
+    color: #fff9f0 !important;
+}
+
+.custom-dropdown-item2 {
+    background-color: transparent !important;
+    color:#2e4a70 !important;
+    text-decoration: none;
+}
+
+.custom-dropdown-item2:hover,
+.custom-dropdown-item2:focus,
+.custom-dropdown-item2:active {
+    background-color: #8cc4da !important;
+    color: #fff9f0 !important;
+}

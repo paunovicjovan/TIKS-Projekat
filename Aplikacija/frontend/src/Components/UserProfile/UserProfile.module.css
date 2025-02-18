@@ -1,0 +1,45 @@
+.fields {
+    border: 3px solid #e3d5a5 !important;
+}
+
+.input_placeholder {
+    color: #85a0a9;
+}
+
+.dugme {
+    transition: 0.4s;
+    background-color: #8cc4da;
+}
+
+.dugme:hover {
+    background-color: #85a0a9;
+}
+
+.dugme1 {
+    background-color: #cf8a40;
+    font-size: 1.5rem; 
+    padding: 1rem 2rem; 
+    transition: 0.4s;
+    border-color: #cf8a40;
+}
+
+.dugme1:hover {
+    background-color: #85a0a9;
+}
+
+.dugme2 {
+    background-color: #e3d5a5;
+    font-size: 1.5rem; 
+    padding: 1rem 2rem; 
+    transition: 0.4s;
+    border-color: #e3d5a5;
+}
+
+.dugme2:hover {
+    background-color: #85a0a9;
+    color: #fff;
+}
+
+.slova {
+    font-size: 16px;
+}

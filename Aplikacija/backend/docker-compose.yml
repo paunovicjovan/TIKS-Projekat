@@ -1,0 +1,11 @@
+services:
+  mongodb:
+    image: mongo:8.0.4
+    container_name: nbp_mongo
+    volumes:
+      - ./mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=nbp
+    ports:
+      - "27017:27017"
+    restart: always
