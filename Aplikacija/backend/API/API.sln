@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "API", "API.csproj", "{ED562
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLayer", "..\DataLayer\DataLayer.csproj", "{86E70F4D-F63F-4983-8A01-A61485FCBAF0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NUnitTests", "..\NUnitTests\NUnitTests.csproj", "{06448CCF-CFFC-46D8-9848-BDE94AC51F4B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +22,10 @@ Global
 		{86E70F4D-F63F-4983-8A01-A61485FCBAF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{86E70F4D-F63F-4983-8A01-A61485FCBAF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{86E70F4D-F63F-4983-8A01-A61485FCBAF0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{06448CCF-CFFC-46D8-9848-BDE94AC51F4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{06448CCF-CFFC-46D8-9848-BDE94AC51F4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{06448CCF-CFFC-46D8-9848-BDE94AC51F4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{06448CCF-CFFC-46D8-9848-BDE94AC51F4B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
