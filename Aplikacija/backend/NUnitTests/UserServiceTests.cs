@@ -1,4 +1,4 @@
-﻿namespace NUnitTests;
+namespace NUnitTests;
 
 [TestFixture]
 public class UserServiceTests
