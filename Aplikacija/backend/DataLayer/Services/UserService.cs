@@ -32,19 +32,19 @@ public class UserService
             if (!emailRegex.IsMatch(userDto.Email))
                 return "E-mail nije u ispravnom formatu.".ToError();
 
-            var existingUserByUsername = await _usersCollection
-                .Find(u => u.Username == userDto.Username)
-                .FirstOrDefaultAsync();
-
-            if (existingUserByUsername != null)
-                return "Već postoji korisnik sa unetim korisničkim imenom.".ToError();
-
-            var existingUserByEmail = await _usersCollection
-                .Find(u => u.Email == userDto.Email)
-                .FirstOrDefaultAsync();
-
-            if (existingUserByEmail != null)
-                return "Već postoji korisnik sa unetim e-mail-om.".ToError();
+            // var existingUserByUsername = await _usersCollection
+            //     .Find(u => u.Username == userDto.Username)
+            //     .FirstOrDefaultAsync();
+            //
+            // if (existingUserByUsername != null)
+            //     return "Već postoji korisnik sa unetim korisničkim imenom.".ToError();
+            //
+            // var existingUserByEmail = await _usersCollection
+            //     .Find(u => u.Email == userDto.Email)
+            //     .FirstOrDefaultAsync();
+            //
+            // if (existingUserByEmail != null)
+            //     return "Već postoji korisnik sa unetim e-mail-om.".ToError();
 
             var newUser = new User
             {
@@ -113,22 +113,6 @@ public class UserService
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userId != null)
                 return userId;
-
-            return "Došlo je do greške prilikom učitavanja korisnika.".ToError();
-        }
-        catch (Exception)
-        {
-            return "Došlo je do greške prilikom učitavanja korisnika.".ToError();
-        }
-    }
-
-    public async Task<Result<UserResultDTO, ErrorMessage>> GetCurrentUser(ClaimsPrincipal user)
-    {
-        try
-        {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId != null)
-                return await GetById(userId);
 
             return "Došlo je do greške prilikom učitavanja korisnika.".ToError();
         }

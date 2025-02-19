@@ -9,31 +9,26 @@ public class UserServiceTests
     {
         // Arrange
         var mockUsersCollection = new Mock<IMongoCollection<User>>();
-
+    
         mockUsersCollection
             .Setup(collection => collection.InsertOneAsync(It.IsAny<User>(), null, It.IsAny<CancellationToken>()))
+            .Callback<User, InsertOneOptions?, CancellationToken>((user, _, _) =>
+            {
+                user.Id = "some-id";
+            })
             .Returns(Task.CompletedTask);
         
-        // var mockFindFluent = new Mock<IFindFluent<User, User>>();
-        // mockFindFluent
-        //     .Setup(f => f.FirstOrDefaultAsync(It.IsAny<CancellationToken>()))
-        //     .ReturnsAsync((User?)null);
-        //
-        // mockUsersCollection
-        //     .Setup(collection => collection.Find(It.IsAny<FilterDefinition<User>>(), null))
-        //     .Returns(mockFindFluent.Object);
-        
         var mockTokenService = new Mock<ITokenService>();
-
+    
         const string fakeJwt = "some-jwt";
         mockTokenService.Setup(service => service.CreateToken(It.IsAny<User>()))
             .Returns(fakeJwt);
         
         var mockServiceProvider = new Mock<IServiceProvider>();
-
+    
         var userService =
             new UserService(mockUsersCollection.Object, mockTokenService.Object, mockServiceProvider.Object);
-
+    
         var userDto = new CreateUserDTO()
         {
             Username = "Petar",
@@ -41,10 +36,10 @@ public class UserServiceTests
             Password = "@Petar123",
             PhoneNumber = "065 123 1212"
         };
-
+    
         // Act
         (bool isError, var result, ErrorMessage? error) = await userService.Register(userDto);
-
+    
         // Assert
         Assert.That(isError, Is.False);
         Assert.That(result, Is.Not.Null);
