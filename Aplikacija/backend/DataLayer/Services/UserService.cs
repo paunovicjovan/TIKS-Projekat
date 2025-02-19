@@ -32,19 +32,19 @@ public class UserService
             if (!emailRegex.IsMatch(userDto.Email))
                 return "E-mail nije u ispravnom formatu.".ToError();
 
-            // var existingUserByUsername = await _usersCollection
-            //     .Find(u => u.Username == userDto.Username)
-            //     .FirstOrDefaultAsync();
-            //
-            // if (existingUserByUsername != null)
-            //     return "Već postoji korisnik sa unetim korisničkim imenom.".ToError();
-            //
-            // var existingUserByEmail = await _usersCollection
-            //     .Find(u => u.Email == userDto.Email)
-            //     .FirstOrDefaultAsync();
-            //
-            // if (existingUserByEmail != null)
-            //     return "Već postoji korisnik sa unetim e-mail-om.".ToError();
+            var existingUserByUsername = await _usersCollection
+                .Find(u => u.Username == userDto.Username)
+                .FirstOrDefaultAsync();
+            
+            if (existingUserByUsername != null)
+                return "Već postoji korisnik sa unetim korisničkim imenom.".ToError();
+            
+            var existingUserByEmail = await _usersCollection
+                .Find(u => u.Email == userDto.Email)
+                .FirstOrDefaultAsync();
+            
+            if (existingUserByEmail != null)
+                return "Već postoji korisnik sa unetim e-mail-om.".ToError();
 
             var newUser = new User
             {
