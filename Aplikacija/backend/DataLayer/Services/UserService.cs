@@ -108,15 +108,19 @@ public class UserService
         }
     }
 
-    public Result<string, ErrorMessage> GetCurrentUserId(ClaimsPrincipal user)
+    public Result<string, ErrorMessage> GetCurrentUserId(ClaimsPrincipal? user)
     {
+        if (user == null)
+        {
+            return "Korisnički podaci nisu dostupni, ClaimsPrincipal objekat je null.".ToError();
+        }
         try
         {
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userId != null)
                 return userId;
 
-            return "Došlo je do greške prilikom učitavanja korisnika.".ToError();
+            return "Korisnički ID nije pronađen, nedostaje NameIdentifier claim.".ToError();
         }
         catch (Exception)
         {

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 namespace NUnitTests;
 
 [TestFixture]
@@ -343,7 +345,7 @@ public class UserServiceTests
 
         _tokenServiceMock.Verify(service => service.CreateToken(It.IsAny<User>()), Times.Never);
     }
-    
+
     [Test]
     public async Task Login_ShouldReturnError_WhenPasswordIsIncorrect()
     {
@@ -407,6 +409,188 @@ public class UserServiceTests
 
         _tokenServiceMock.Verify(service => service.CreateToken(It.IsAny<User>()), Times.Never);
     }
-    
+
+    #endregion
+
+    #region GetCurrentUserId
+
+    [Test]
+    public void GetCurrentUserId_ShouldReturnUserId_WhenUserHasValidClaim()
+    {
+        // Arrange
+        var expectedUserId = "some-id";
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, expectedUserId)
+        };
+        var identity = new ClaimsIdentity(claims);
+        var user = new ClaimsPrincipal(identity);
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var userId, ErrorMessage? error) = userService.GetCurrentUserId(user);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(userId, Is.EqualTo(expectedUserId));
+        Assert.That(error, Is.Null);
+    }
+
+    [Test]
+    public void GetCurrentUserId_ShouldReturnError_WhenUserHasNoNameIdentifierClaim()
+    {
+        // Arrange
+        var claims = new List<Claim>();
+        var identity = new ClaimsIdentity(claims);
+        var user = new ClaimsPrincipal(identity);
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var userId, ErrorMessage? error) = userService.GetCurrentUserId(user);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(userId, Is.Null);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.Message, Is.EqualTo("Korisnički ID nije pronađen, nedostaje NameIdentifier claim."));
+    }
+
+    [Test]
+    public void GetCurrentUserId_ShouldReturnError_WhenClaimsPrincipalIsNull()
+    {
+        // Arrange
+        ClaimsPrincipal? user = null;
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var userId, ErrorMessage? error) = userService.GetCurrentUserId(user);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(userId, Is.Null);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.Message, Is.EqualTo("Korisnički podaci nisu dostupni, ClaimsPrincipal objekat je null."));
+    }
+
+    #endregion
+
+    #region GetById
+
+    [Test]
+    public async Task GetById_ShouldReturnUser_WhenUserExists()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123123",
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var userResult, ErrorMessage? error) = await userService.GetById("123");
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(userResult, Is.Not.Null);
+        Assert.That(userResult.Id, Is.EqualTo(existingUser.Id));
+        Assert.That(userResult.Username, Is.EqualTo(existingUser.Username));
+        Assert.That(userResult.Email, Is.EqualTo(existingUser.Email));
+        Assert.That(userResult.PhoneNumber, Is.EqualTo(existingUser.PhoneNumber));
+        Assert.That(userResult.Role, Is.EqualTo(UserRole.User));
+
+        _usersCollectionMock.Verify(collection => collection.FindAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<FindOptions<User, User>>(),
+            It.IsAny<CancellationToken>()),
+        Times.Once);
+
+        _usersCursorMock.Verify(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Test]
+    public async Task GetById_ShouldReturnError_WhenUserDoesNotExist()
+    {
+        // Arrange
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User>());
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var userResult, ErrorMessage? error) = await userService.GetById("non-existent-id");
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(404));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen."));
+    }
+
+    [Test]
+    public async Task GetById_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var userResult, ErrorMessage? error) = await userService.GetById("123");
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja podataka o korisniku."));
+    }
+
     #endregion
 }

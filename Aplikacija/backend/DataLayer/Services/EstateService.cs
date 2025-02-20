@@ -311,7 +311,7 @@ public class EstateService
                             ? parsedCategory
                             : (EstateCategory?)null)
                     .Where(c => c.HasValue)
-                    .Select(c => c.Value)
+                    .Select(c => c!.Value)
                     .ToList();
 
                 filter &= Builders<Estate>.Filter.In(x => x.Category, categoryEnums);
