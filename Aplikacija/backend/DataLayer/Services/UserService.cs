@@ -5,13 +5,15 @@ public class UserService
     private readonly IMongoCollection<User> _usersCollection;
     private readonly ITokenService _tokenService;
     private readonly IServiceProvider _serviceProvider;
-    private readonly PasswordHasher<User> _passwordHasher = new();
+    private readonly IPasswordHasher<User> _passwordHasher;
 
-    public UserService(IMongoCollection<User> usersCollection, ITokenService tokenService, IServiceProvider serviceProvider)
+    public UserService(IMongoCollection<User> usersCollection, ITokenService tokenService,
+        IServiceProvider serviceProvider, IPasswordHasher<User> passwordHasher)
     {
         _usersCollection = usersCollection;
         _tokenService = tokenService;
         _serviceProvider = serviceProvider;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<Result<AuthResponseDTO, ErrorMessage>> Register(CreateUserDTO userDto)
@@ -35,14 +37,14 @@ public class UserService
             var existingUserByUsername = await _usersCollection
                 .Find(u => u.Username == userDto.Username)
                 .FirstOrDefaultAsync();
-            
+
             if (existingUserByUsername != null)
                 return "Već postoji korisnik sa unetim korisničkim imenom.".ToError();
-            
+
             var existingUserByEmail = await _usersCollection
                 .Find(u => u.Email == userDto.Email)
                 .FirstOrDefaultAsync();
-            
+
             if (existingUserByEmail != null)
                 return "Već postoji korisnik sa unetim e-mail-om.".ToError();
 
@@ -269,12 +271,12 @@ public class UserService
                 x => x.Id == userId,
                 user
             );
-            
+
             var estateService = _serviceProvider.GetRequiredService<EstateService>();
 
             var updateEstateResult = await estateService.AddFavoriteUserToEstate(estateId, userId);
-            
-            if(updateEstateResult.IsError)
+
+            if (updateEstateResult.IsError)
                 return updateEstateResult.Error;
 
             if (updateResult.ModifiedCount > 0)
@@ -307,12 +309,12 @@ public class UserService
                 x => x.Id == userId,
                 user
             );
-            
+
             var estateService = _serviceProvider.GetRequiredService<EstateService>();
 
             var updateEstateResult = await estateService.RemoveFavoriteUserFromEstate(estateId, userId);
-            
-            if(updateEstateResult.IsError)
+
+            if (updateEstateResult.IsError)
                 return updateEstateResult.Error;
 
             if (updateResult.ModifiedCount > 0)
@@ -327,7 +329,7 @@ public class UserService
             return "Došlo je do greške prilikom uklanjanja nekretnine iz omiljenih.".ToError();
         }
     }
-    
+
     public async Task<Result<bool, ErrorMessage>> CanAddToFavorite(string userId, string estateId)
     {
         try
@@ -353,7 +355,8 @@ public class UserService
         }
         catch (Exception)
         {
-            return "Došlo je do greške prilikom određivanja da li korisnik može da doda nekretninu u omiljene.".ToError();
+            return "Došlo je do greške prilikom određivanja da li korisnik može da doda nekretninu u omiljene."
+                .ToError();
         }
     }
 }

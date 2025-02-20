@@ -7,6 +7,7 @@ public class UserServiceTests
     private Mock<IAsyncCursor<User>> _usersCursorMock;
     private Mock<ITokenService> _tokenServiceMock;
     private Mock<IServiceProvider> _serviceProviderMock;
+    private Mock<IPasswordHasher<User>> _passwordHasherMock;
 
     [SetUp]
     public void SetUp()
@@ -15,7 +16,10 @@ public class UserServiceTests
         _usersCursorMock = new Mock<IAsyncCursor<User>>();
         _tokenServiceMock = new Mock<ITokenService>();
         _serviceProviderMock = new Mock<IServiceProvider>();
+        _passwordHasherMock = new Mock<IPasswordHasher<User>>();
     }
+
+    #region Register
 
     [Test]
     //imenovanje: NazivMetodeKojaSeTestira_OcekivaniIshod_Uslov
@@ -46,9 +50,6 @@ public class UserServiceTests
         _tokenServiceMock.Setup(service => service.CreateToken(It.IsAny<User>()))
             .Returns(fakeJwt);
 
-        var userService =
-            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object);
-
         var userDto = new CreateUserDTO()
         {
             Username = "Petar",
@@ -57,19 +58,29 @@ public class UserServiceTests
             PhoneNumber = "065 123 1212"
         };
 
+        const string fakePasswordHash = "password-hash";
+        _passwordHasherMock.Setup(hasher => hasher.HashPassword(It.IsAny<User>(), userDto.Password))
+            .Returns(fakePasswordHash);
+
+        var userService =
+            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object,
+                _passwordHasherMock.Object);
+
         // Act
-        (bool isError, var result, ErrorMessage? error) = await userService.Register(userDto);
+        (bool isError, var authResponse, ErrorMessage? error) = await userService.Register(userDto);
 
         // Assert
         // uvek koristimo Assert.That metodu
         Assert.That(isError, Is.False);
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.Id, Is.EqualTo(generatedId));
-        Assert.That(result.Username, Is.EqualTo(userDto.Username));
-        Assert.That(result.Email, Is.EqualTo(userDto.Email));
-        Assert.That(result.PhoneNumber, Is.EqualTo(userDto.PhoneNumber));
-        Assert.That(result.Role, Is.EqualTo(UserRole.User));
-        Assert.That(result.Token, Is.EqualTo(fakeJwt));
+        Assert.That(authResponse, Is.Not.Null);
+        Assert.That(authResponse.Id, Is.EqualTo(generatedId));
+        Assert.That(authResponse.Username, Is.EqualTo(userDto.Username));
+        Assert.That(authResponse.Email, Is.EqualTo(userDto.Email));
+        Assert.That(authResponse.PhoneNumber, Is.EqualTo(userDto.PhoneNumber));
+        Assert.That(authResponse.Role, Is.EqualTo(UserRole.User));
+        Assert.That(authResponse.Token, Is.EqualTo(fakeJwt));
+
+        _passwordHasherMock.Verify(hasher => hasher.HashPassword(It.IsAny<User>(), userDto.Password), Times.Once);
 
         _usersCollectionMock.Verify(
             collection => collection.InsertOneAsync(It.IsAny<User>(), null, It.IsAny<CancellationToken>()),
@@ -103,7 +114,8 @@ public class UserServiceTests
             .ReturnsAsync(_usersCursorMock.Object);
 
         var userService =
-            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object);
+            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object,
+                _passwordHasherMock.Object);
 
         var userDto = new CreateUserDTO()
         {
@@ -114,7 +126,7 @@ public class UserServiceTests
         };
 
         // Act
-        (bool isError, var result, ErrorMessage? error) = await userService.Register(userDto);
+        (bool isError, var authResponse, ErrorMessage? error) = await userService.Register(userDto);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -130,9 +142,8 @@ public class UserServiceTests
         _usersCollectionMock.Verify(c => c.InsertOneAsync(It.IsAny<User>(), null, It.IsAny<CancellationToken>()),
             Times.Never);
     }
-    
+
     [Test]
-    [Ignore("Ne radi jos")]
     public async Task Register_ReturnsError_WhenUsernameIsTaken()
     {
         // Arrange
@@ -156,29 +167,36 @@ public class UserServiceTests
             Username = userDto.Username,
             Email = userDto.Email,
             PasswordHash = "123",
-            PhoneNumber = "066 123 12 12"
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User
         };
-        
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
         _usersCursorMock
             .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
             .Returns(true)
             .Returns(false);
 
-        _usersCursorMock
-            .Setup(cursor => cursor.Current)
-            .Returns(new List<User> { existingUser });
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
 
         _usersCollectionMock
-            .Setup(collection => collection.FindAsync(It.IsAny<FilterDefinition<User>>(),
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
                 It.IsAny<FindOptions<User, User>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
         var userService =
-            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object);
+            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object,
+                _passwordHasherMock.Object);
 
         // Act
-        (bool isError, var result, ErrorMessage? error) = await userService.Register(userDto);
+        (bool isError, var authResponse, ErrorMessage? error) = await userService.Register(userDto);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -189,4 +207,206 @@ public class UserServiceTests
         _usersCollectionMock.Verify(c => c.InsertOneAsync(It.IsAny<User>(), null, It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    #endregion
+
+    #region Login
+
+    [Test]
+    public async Task Login_ShouldLoginUser_WhenCredentialsAreValid()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123123",
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var loginRequest = new LoginRequestDTO()
+        {
+            Email = existingUser.Email,
+            Password = "123"
+        };
+
+        _passwordHasherMock.Setup(hasher =>
+                hasher.VerifyHashedPassword(It.IsAny<User>(), existingUser.PasswordHash, loginRequest.Password))
+            .Returns(PasswordVerificationResult.Success);
+
+        const string fakeJwt = "some-jwt";
+        _tokenServiceMock.Setup(service => service.CreateToken(It.IsAny<User>()))
+            .Returns(fakeJwt);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object,
+            _passwordHasherMock.Object);
+
+        //Act
+        (bool isError, var authResponse, ErrorMessage? error) = await userService.Login(loginRequest);
+
+        //Assert
+        Assert.That(isError, Is.False);
+        Assert.That(authResponse, Is.Not.Null);
+        Assert.That(authResponse.Id, Is.EqualTo(existingUser.Id));
+        Assert.That(authResponse.Username, Is.EqualTo(existingUser.Username));
+        Assert.That(authResponse.Email, Is.EqualTo(existingUser.Email));
+        Assert.That(authResponse.PhoneNumber, Is.EqualTo(existingUser.PhoneNumber));
+        Assert.That(authResponse.Role, Is.EqualTo(UserRole.User));
+        Assert.That(authResponse.Token, Is.EqualTo(fakeJwt));
+
+        _passwordHasherMock.Verify(
+            hasher => hasher.VerifyHashedPassword(It.IsAny<User>(), existingUser.PasswordHash, loginRequest.Password),
+            Times.Once);
+
+        _tokenServiceMock.Verify(service => service.CreateToken(It.IsAny<User>()), Times.Once);
+    }
+
+    [Test]
+    public async Task Login_ShouldReturnError_WhenEmailDoesNotExist()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123123",
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User>());
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var loginRequest = new LoginRequestDTO()
+        {
+            Email = "non-existent@gmail.com",
+            Password = "123"
+        };
+
+        var userService = new UserService(
+            _usersCollectionMock.Object,
+            _tokenServiceMock.Object,
+            _serviceProviderMock.Object,
+            _passwordHasherMock.Object);
+
+        //Act
+        (bool isError, var authResponse, ErrorMessage? error) = await userService.Login(loginRequest);
+
+        //Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(403));
+        Assert.That(error.Message, Is.EqualTo("Neispravan email ili lozinka."));
+
+        _passwordHasherMock.Verify(
+            hasher => hasher.VerifyHashedPassword(It.IsAny<User>(), existingUser.PasswordHash, loginRequest.Password),
+            Times.Never);
+
+        _tokenServiceMock.Verify(service => service.CreateToken(It.IsAny<User>()), Times.Never);
+    }
+    
+    [Test]
+    public async Task Login_ShouldReturnError_WhenPasswordIsIncorrect()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123123",
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var loginRequest = new LoginRequestDTO()
+        {
+            Email = existingUser.Email,
+            Password = "123"
+        };
+
+        _passwordHasherMock.Setup(hasher =>
+                hasher.VerifyHashedPassword(It.IsAny<User>(), existingUser.PasswordHash, loginRequest.Password))
+            .Returns(PasswordVerificationResult.Failed);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object,
+            _passwordHasherMock.Object);
+
+        //Act
+        (bool isError, var authResponse, ErrorMessage? error) = await userService.Login(loginRequest);
+
+        //Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(403));
+        Assert.That(error.Message, Is.EqualTo("Neispravan email ili lozinka."));
+
+        _passwordHasherMock.Verify(
+            hasher => hasher.VerifyHashedPassword(It.IsAny<User>(), existingUser.PasswordHash, loginRequest.Password),
+            Times.Once);
+
+        _tokenServiceMock.Verify(service => service.CreateToken(It.IsAny<User>()), Times.Never);
+    }
+    
+    #endregion
 }
