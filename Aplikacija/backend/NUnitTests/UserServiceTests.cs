@@ -1,5 +1,4 @@
-﻿using System.Linq.Expressions;
-using System.Security.Claims;
+﻿using DataLayer.DTOs.Estate;
 
 namespace NUnitTests;
 
@@ -11,8 +10,7 @@ public class UserServiceTests
     private Mock<ITokenService> _tokenServiceMock;
     private Mock<IServiceProvider> _serviceProviderMock;
     private Mock<IPasswordHasher<User>> _passwordHasherMock;
-    private Mock<IMongoCollection<Estate>> _estatesCollectionMock;
-    private Mock<IAsyncCursor<Estate>> _estatesCursorMock;
+    private Mock<IEstateService> _estateServiceMock;
 
     [SetUp]
     public void SetUp()
@@ -22,8 +20,7 @@ public class UserServiceTests
         _tokenServiceMock = new Mock<ITokenService>();
         _serviceProviderMock = new Mock<IServiceProvider>();
         _passwordHasherMock = new Mock<IPasswordHasher<User>>();
-        _estatesCollectionMock = new Mock<IMongoCollection<Estate>>();
-        _estatesCursorMock = new Mock<IAsyncCursor<Estate>>();
+        _estateServiceMock = new Mock<IEstateService>();
     }
 
     #region Register
@@ -606,7 +603,8 @@ public class UserServiceTests
 
     [Test]
     public async Task Update_ShouldUpdateUser_WhenUserExistsAndUsernameIsValid(
-        [Values("petar", "petar12", "_petar.")] string username)
+        [Values("petar", "petar12", "_petar.")]
+        string username)
     {
         //Arrange
         var updateDto = new UpdateUserDTO()
@@ -733,7 +731,8 @@ public class UserServiceTests
     }
 
     [Test]
-    public async Task Update_ShouldReturnError_WhenUsernameIsNotValid([Values("#1", "petar petar", "ime?")] string username)
+    public async Task Update_ShouldReturnError_WhenUsernameIsNotValid(
+        [Values("#1", "petar petar", "ime?")] string username)
     {
         //Arrange
         var updateDto = new UpdateUserDTO()
@@ -782,7 +781,9 @@ public class UserServiceTests
         Assert.That(isError, Is.True);
         Assert.That(error, Is.Not.Null);
         Assert.That(error.StatusCode, Is.EqualTo(400));
-        Assert.That(error.Message, Is.EqualTo("Korisničko ime nije u validnom formatu. Dozvoljena su mala i velika slova abecede, brojevi, _ i ."));
+        Assert.That(error.Message,
+            Is.EqualTo(
+                "Korisničko ime nije u validnom formatu. Dozvoljena su mala i velika slova abecede, brojevi, _ i ."));
 
         _usersCollectionMock.Verify(collection => collection.FindAsync(
             It.IsAny<FilterDefinition<User>>(),
@@ -921,7 +922,8 @@ public class UserServiceTests
             _serviceProviderMock.Object, _passwordHasherMock.Object);
 
         // Act
-        (bool isError, var removeResult, ErrorMessage? error) = await userService.RemoveCommentFromUser(userId, commentId);
+        (bool isError, var removeResult, ErrorMessage? error) =
+            await userService.RemoveCommentFromUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.False);
@@ -954,7 +956,8 @@ public class UserServiceTests
             _serviceProviderMock.Object, _passwordHasherMock.Object);
 
         // Act
-        (bool isError, var removeResult, ErrorMessage? error) = await userService.RemoveCommentFromUser(userId, commentId);
+        (bool isError, var removeResult, ErrorMessage? error) =
+            await userService.RemoveCommentFromUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -988,7 +991,8 @@ public class UserServiceTests
             _serviceProviderMock.Object, _passwordHasherMock.Object);
 
         // Act
-        (bool isError, var removeResult, ErrorMessage? error) = await userService.RemoveCommentFromUser(userId, commentId);
+        (bool isError, var removeResult, ErrorMessage? error) =
+            await userService.RemoveCommentFromUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1209,4 +1213,548 @@ public class UserServiceTests
 
     #endregion
 
+    #region AddFavoriteEstate
+
+    [Test]
+    public async Task AddFavoriteEstate_ShouldAddFavoriteEstate_WhenDataIsValid()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123 123",
+            PhoneNumber = "065 123 1212"
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        _usersCollectionMock.Setup(collection => collection.ReplaceOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<User>(),
+                It.IsAny<ReplaceOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReplaceOneResult.Acknowledged(1, 1, null));
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(IEstateService)))
+            .Returns(_estateServiceMock.Object);
+
+        _estateServiceMock.Setup(service => service.AddFavoriteUserToEstate(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        const string estateId = "456";
+
+        //Act
+        (bool isError, var isSuccess, ErrorMessage? error) =
+            await userService.AddFavoriteEstate(existingUser.Id, estateId);
+
+        //Assert
+        Assert.That(isError, Is.False);
+        Assert.That(isSuccess, Is.True);
+        Assert.That(error, Is.Null);
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _serviceProviderMock.Verify(provider => provider.GetService(typeof(IEstateService)), Times.Once);
+
+        _estateServiceMock.Verify(service => service.AddFavoriteUserToEstate(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task AddFavoriteEstate_ShouldReturnError_WhenUserDoesNotExist()
+    {
+        // Arrange
+        const string userId = "123";
+        const string postId = "456";
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User>());
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddFavoriteEstate(userId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen."));
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions<User>>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+
+        _serviceProviderMock.Verify(provider => provider.GetService(typeof(IEstateService)), Times.Never);
+
+        _estateServiceMock.Verify(service => service.AddFavoriteUserToEstate(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Test]
+    public async Task AddFavoriteEstate_ShouldReturnError_WhenEstateIsAlreadyFavorite()
+    {
+        // Arrange
+        const string estateId = "456";
+
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123 123",
+            PhoneNumber = "065 123 1212",
+            FavoriteEstateIds = new List<string>() { estateId }
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        //Act
+        (bool isError, var isSuccess, ErrorMessage? error) =
+            await userService.AddFavoriteEstate(existingUser.Id, estateId);
+
+        //Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Nekretnina je već u omiljenim."));
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+
+        _serviceProviderMock.Verify(provider => provider.GetService(typeof(IEstateService)), Times.Never);
+
+        _estateServiceMock.Verify(service => service.AddFavoriteUserToEstate(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    #endregion
+
+    #region RemoveFavoriteEstate
+
+    [Test]
+    public async Task RemoveFavoriteEstate_ShouldRemoveFavoriteEstate_WhenDataIsValid()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123 123",
+            PhoneNumber = "065 123 1212",
+            FavoriteEstateIds = new List<string> { "456" }
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        _usersCollectionMock.Setup(collection => collection.ReplaceOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<User>(),
+                It.IsAny<ReplaceOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReplaceOneResult.Acknowledged(1, 1, null));
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(IEstateService)))
+            .Returns(_estateServiceMock.Object);
+
+        _estateServiceMock
+            .Setup(service => service.RemoveFavoriteUserFromEstate(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        const string estateId = "456";
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) =
+            await userService.RemoveFavoriteEstate(existingUser.Id, estateId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(isSuccess, Is.True);
+        Assert.That(error, Is.Null);
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _serviceProviderMock.Verify(provider => provider.GetService(typeof(IEstateService)), Times.Once);
+
+        _estateServiceMock.Verify(
+            service => service.RemoveFavoriteUserFromEstate(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task RemoveFavoriteEstate_ShouldReturnError_WhenEstateIsNotFavorite()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123 123",
+            PhoneNumber = "065 123 1212",
+            FavoriteEstateIds = new List<string>()
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        const string estateId = "456";
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) =
+            await userService.RemoveFavoriteEstate(existingUser.Id, estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Nekretnina se ne nalazi u omiljenim."));
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task RemoveFavoriteEstate_ShouldReturnError_WhenUserDoesNotExist()
+    {
+        // Arrange
+        const string userId = "123";
+        const string estateId = "456";
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User>());
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.RemoveFavoriteEstate(userId, estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen."));
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
+    #region CanAddToFavorite
+
+    [Test]
+    public async Task CanAddToFavorite_ShouldReturnTrue_WhenUserCanAddEstateToFavorites()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123 123",
+            PhoneNumber = "065 123 1212",
+            FavoriteEstateIds = new List<string>()
+        };
+
+        var estate = new EstateResultDTO()
+        {
+            Id = "456",
+            Title = "Stan",
+            Description = "Opis",
+            Price = 100000,
+            SquareMeters = 100,
+            TotalRooms = 6,
+            Category = EstateCategory.Flat,
+            Images = new List<string>(),
+            User = new UserResultDTO()
+            {
+                Id = "789",
+                Email = "marko@gmail.com",
+                PhoneNumber = "064 561 21 12",
+                Username = "Marko"
+            }
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(IEstateService)))
+            .Returns(_estateServiceMock.Object);
+
+        _estateServiceMock.Setup(service => service.GetEstate(estate.Id))
+            .ReturnsAsync(estate);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) =
+            await userService.CanAddToFavorite(existingUser.Id, estate.Id);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+        Assert.That(error, Is.Null);
+    }
+
+    [Test]
+    public async Task CanAddToFavorite_ShouldReturnError_WhenUserNotFound()
+    {
+        // Arrange
+        const string userId = "123";
+        const string estateId = "456";
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User>());
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await userService.CanAddToFavorite(userId, estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen."));
+    }
+
+    [Test]
+    public async Task CanAddToFavorite_ShouldReturnFalse_WhenUserIsOwnerOfEstate()
+    {
+        // Arrange
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123 123",
+            PhoneNumber = "065 123 1212",
+            FavoriteEstateIds = new List<string>()
+        };
+
+        var estate = new EstateResultDTO()
+        {
+            Id = "456",
+            Title = "Stan",
+            Description = "Opis",
+            Price = 100000,
+            SquareMeters = 100,
+            TotalRooms = 6,
+            Category = EstateCategory.Flat,
+            Images = new List<string>(),
+            User = new UserResultDTO(existingUser)
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(IEstateService)))
+            .Returns(_estateServiceMock.Object);
+        
+        _estateServiceMock.Setup(service => service.GetEstate(It.IsAny<string>()))
+            .ReturnsAsync(estate);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var canAddToFavorite, ErrorMessage? error) =
+            await userService.CanAddToFavorite(existingUser.Id, estate.Id);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(canAddToFavorite, Is.False);
+        Assert.That(error, Is.Null);
+    }
+
+    #endregion
 }

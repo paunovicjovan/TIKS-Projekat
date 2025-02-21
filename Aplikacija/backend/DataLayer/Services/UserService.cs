@@ -272,6 +272,11 @@ public class UserService
         {
             var user = await _usersCollection.Find(x => x.Id == userId).FirstOrDefaultAsync();
 
+            if (user == null)
+            {
+                return "Korisnik nije pronađen.".ToError();
+            }
+
             if (user.FavoriteEstateIds.Contains(estateId))
             {
                 return "Nekretnina je već u omiljenim.".ToError();
@@ -284,7 +289,7 @@ public class UserService
                 user
             );
 
-            var estateService = _serviceProvider.GetRequiredService<EstateService>();
+            var estateService = _serviceProvider.GetRequiredService<IEstateService>();
 
             var updateEstateResult = await estateService.AddFavoriteUserToEstate(estateId, userId);
 
@@ -309,6 +314,11 @@ public class UserService
         try
         {
             var user = await _usersCollection.Find(x => x.Id == userId).FirstOrDefaultAsync();
+            
+            if (user == null)
+            {
+                return "Korisnik nije pronađen.".ToError();
+            }
 
             if (!user.FavoriteEstateIds.Contains(estateId))
             {
@@ -322,7 +332,7 @@ public class UserService
                 user
             );
 
-            var estateService = _serviceProvider.GetRequiredService<EstateService>();
+            var estateService = _serviceProvider.GetRequiredService<IEstateService>();
 
             var updateEstateResult = await estateService.RemoveFavoriteUserFromEstate(estateId, userId);
 
@@ -353,7 +363,7 @@ public class UserService
                 return "Korisnik nije pronađen.".ToError();
             }
 
-            var estateService = _serviceProvider.GetRequiredService<EstateService>();
+            var estateService = _serviceProvider.GetRequiredService<IEstateService>();
 
             (bool isError, var estate, ErrorMessage? error) = await estateService.GetEstate(estateId);
 

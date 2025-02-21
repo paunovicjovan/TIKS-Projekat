@@ -15,6 +15,11 @@ public class EstateResultDTO
     public double Latitude { get; set; }
     public UserResultDTO? User { get; set; }
 
+    public EstateResultDTO()
+    {
+        
+    }
+    
     [SetsRequiredMembers]
     public EstateResultDTO(BsonValue estateDocument)
     {

@@ -1,6 +1,6 @@
 ﻿namespace DataLayer.Services;
 
-public class EstateService
+public class EstateService : IEstateService
 {
     private readonly IMongoCollection<Estate> _estatesCollection;
     private readonly IMongoCollection<User> _usersCollection;
@@ -54,15 +54,15 @@ public class EstateService
         }
     }
 
-    public async Task<Result<Estate, ErrorMessage>> CreateEstate(EstateCreateDTO newEstateDTO, string? userID)
+    public async Task<Result<Estate, ErrorMessage>> CreateEstate(EstateCreateDTO newEstateDto, string? userId)
     {
         try
         {
-            if (userID != null)
+            if (userId != null)
             {
                 var imagePaths = new List<string>();
 
-                foreach (var file in newEstateDTO.Images)
+                foreach (var file in newEstateDto.Images)
                 {
                     var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
                     var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "EstateImages");
@@ -79,17 +79,17 @@ public class EstateService
 
                 var estate = new Estate
                 {
-                    Title = newEstateDTO.Title,
-                    Description = newEstateDTO.Description,
-                    Price = newEstateDTO.Price,
-                    SquareMeters = newEstateDTO.SquareMeters,
-                    TotalRooms = newEstateDTO.TotalRooms,
-                    Category = newEstateDTO.Category,
-                    FloorNumber = newEstateDTO.FloorNumber,
+                    Title = newEstateDto.Title,
+                    Description = newEstateDto.Description,
+                    Price = newEstateDto.Price,
+                    SquareMeters = newEstateDto.SquareMeters,
+                    TotalRooms = newEstateDto.TotalRooms,
+                    Category = newEstateDto.Category,
+                    FloorNumber = newEstateDto.FloorNumber,
                     Images = imagePaths,
-                    Longitude = newEstateDTO.Longitude,
-                    Latitude = newEstateDTO.Latitude,
-                    UserId = userID
+                    Longitude = newEstateDto.Longitude,
+                    Latitude = newEstateDto.Latitude,
+                    UserId = userId
                 };
 
                 await _estatesCollection.InsertOneAsync(estate);
