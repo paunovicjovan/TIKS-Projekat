@@ -1,3 +1,4 @@
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -15,6 +16,7 @@ builder.Services.AddSingleton(usersCollection);
 builder.Services.AddSingleton(estatesCollection);
 builder.Services.AddSingleton(postsCollection);
 builder.Services.AddSingleton(commentsCollection);
+builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<UserService>();

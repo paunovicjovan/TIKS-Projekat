@@ -158,6 +158,14 @@ public class UserService
             if (existingUser == null)
                 return "Korisnik nije pronađen.".ToError(404);
 
+            string usernamePattern = @"^[a-zA-Z0-9._]+$";
+            Regex usernameRegex = new Regex(usernamePattern);
+
+            if (!usernameRegex.IsMatch(userDto.Username))
+                return
+                    "Korisničko ime nije u validnom formatu. Dozvoljena su mala i velika slova abecede, brojevi, _ i ."
+                        .ToError();
+            
             existingUser.Username = userDto.Username;
             existingUser.PhoneNumber = userDto.PhoneNumber;
 

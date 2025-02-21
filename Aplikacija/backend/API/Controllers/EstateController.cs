@@ -34,7 +34,7 @@ public class EstateController : ControllerBase
             return StatusCode(error?.StatusCode ?? 400, error?.Message);
         }
 
-        return Ok(new { id = response.Id });
+        return Ok(new { id = response!.Id });
     }
 
     [HttpGet("GetAll")]

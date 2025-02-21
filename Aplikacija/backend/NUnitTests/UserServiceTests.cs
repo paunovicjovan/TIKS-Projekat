@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Security.Claims;
 
 namespace NUnitTests;
@@ -25,7 +26,7 @@ public class UserServiceTests
 
     [Test]
     //imenovanje: NazivMetodeKojaSeTestira_OcekivaniIshod_Uslov
-    public async Task Register_RegistersUser_WhenUserIsValid()
+    public async Task Register_ShouldRegisterUser_WhenUserIsValid()
     {
         // Arrange
         const string generatedId = "some-id";
@@ -92,7 +93,7 @@ public class UserServiceTests
     }
 
     [Test]
-    public async Task Register_ReturnsError_WhenUsernameIsNotValid()
+    public async Task Register_ShouldReturnError_WhenUsernameIsNotValid()
     {
         // Arrange
         const string generatedId = "some-id";
@@ -146,7 +147,7 @@ public class UserServiceTests
     }
 
     [Test]
-    public async Task Register_ReturnsError_WhenUsernameIsTaken()
+    public async Task Register_ShouldReturnError_WhenUsernameIsTaken()
     {
         // Arrange
         const string generatedId = "some-id";
@@ -425,7 +426,8 @@ public class UserServiceTests
         };
         var identity = new ClaimsIdentity(claims);
         var user = new ClaimsPrincipal(identity);
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object, _passwordHasherMock.Object);
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
 
         // Act
         (bool isError, var userId, ErrorMessage? error) = userService.GetCurrentUserId(user);
@@ -443,7 +445,8 @@ public class UserServiceTests
         var claims = new List<Claim>();
         var identity = new ClaimsIdentity(claims);
         var user = new ClaimsPrincipal(identity);
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object, _passwordHasherMock.Object);
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
 
         // Act
         (bool isError, var userId, ErrorMessage? error) = userService.GetCurrentUserId(user);
@@ -460,7 +463,8 @@ public class UserServiceTests
     {
         // Arrange
         ClaimsPrincipal? user = null;
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object, _passwordHasherMock.Object);
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
 
         // Act
         (bool isError, var userId, ErrorMessage? error) = userService.GetCurrentUserId(user);
@@ -526,10 +530,10 @@ public class UserServiceTests
         Assert.That(userResult.Role, Is.EqualTo(UserRole.User));
 
         _usersCollectionMock.Verify(collection => collection.FindAsync(
-            It.IsAny<FilterDefinition<User>>(),
-            It.IsAny<FindOptions<User, User>>(),
-            It.IsAny<CancellationToken>()),
-        Times.Once);
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
 
         _usersCursorMock.Verify(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
@@ -592,5 +596,408 @@ public class UserServiceTests
         Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja podataka o korisniku."));
     }
 
+    #endregion
+
+    #region Update
+
+    [Test]
+    public async Task Update_ShouldUpdateUser_WhenUserExistsAndUsernameIsValid(
+        [Values("petar", "petar12", "_petar.")] string username)
+    {
+        //Arrange
+        var updateDto = new UpdateUserDTO()
+        {
+            Username = username,
+            PhoneNumber = "065 123 123"
+        };
+
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123123",
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var replaceOneResultMock = new Mock<ReplaceOneResult>();
+        replaceOneResultMock.SetupGet(r => r.ModifiedCount).Returns(1);
+
+        _usersCollectionMock.Setup(collection => collection.ReplaceOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<User>(),
+                It.IsAny<ReplaceOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(replaceOneResultMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        //Act
+        (bool isError, var updateResult, ErrorMessage? error) = await userService.Update(existingUser.Id, updateDto);
+
+        //Assert
+        Assert.That(isError, Is.False);
+        Assert.That(updateResult, Is.Not.Null);
+        Assert.That(updateResult.Username, Is.EqualTo(updateDto.Username));
+        Assert.That(updateResult.PhoneNumber, Is.EqualTo(updateDto.PhoneNumber));
+
+        _usersCollectionMock.Verify(collection => collection.FindAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<FindOptions<User, User>>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task Update_ShouldReturnError_WhenUserDoesNotExist()
+    {
+        //Arrange
+        var updateDto = new UpdateUserDTO()
+        {
+            Username = "petar",
+            PhoneNumber = "065 123 123"
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User>());
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        const string userId = "123";
+        //Act
+        (bool isError, var updateResult, ErrorMessage? error) = await userService.Update(userId, updateDto);
+
+        //Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(404));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen."));
+
+        _usersCollectionMock.Verify(collection => collection.FindAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<FindOptions<User, User>>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task Update_ShouldReturnError_WhenUsernameIsNotValid([Values("#1", "petar petar", "ime?")] string username)
+    {
+        //Arrange
+        var updateDto = new UpdateUserDTO()
+        {
+            Username = username,
+            PhoneNumber = "065 123 123"
+        };
+        
+        var existingUser = new User()
+        {
+            Id = "123",
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123123",
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User
+        };
+
+        _usersCursorMock
+            .SetupGet(cursor => cursor.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _usersCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _usersCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User, User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        //Act
+        (bool isError, var updateResult, ErrorMessage? error) = await userService.Update(existingUser.Id, updateDto);
+
+        //Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisničko ime nije u validnom formatu. Dozvoljena su mala i velika slova abecede, brojevi, _ i ."));
+
+        _usersCollectionMock.Verify(collection => collection.FindAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<FindOptions<User, User>>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _usersCollectionMock.Verify(collection => collection.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<User>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+    
+    #region AddCommentToUser
+    
+    [Test]
+    public async Task AddCommentToUser_ShouldAddComment_WhenUserExists()
+    {
+        // Arrange
+        const string userId = "123";
+        const string commentId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddCommentToUser(userId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(isSuccess, Is.True);
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+    
+    [Test]
+    public async Task AddCommentToUser_ShouldReturnError_WhenUserDoesNotExist()
+    {
+        // Arrange
+        const string userId = "123";
+        const string commentId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddCommentToUser(userId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen ili nije ažuriran."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+    
+    [Test]
+    public async Task AddCommentToUser_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        const string userId = "123";
+        const string commentId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error."));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddCommentToUser(userId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom dodavanja komentara korisniku."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+    
+    #endregion
+    
+    
+    #region RemoveCommentFromUser
+    
+    [Test]
+    public async Task RemoveCommentFromUser_ShouldRemoveComment_WhenCommentExists()
+    {
+        // Arrange
+        const string userId = "123";
+        const string commentId = "456";
+
+        _usersCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var removeResult, ErrorMessage? error) = await userService.RemoveCommentFromUser(userId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(removeResult, Is.True);
+        Assert.That(error, Is.Null);
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+    
+    [Test]
+    public async Task RemoveCommentFromUser_ShouldReturnError_WhenCommentNotFound()
+    {
+        // Arrange
+        const string userId = "123";
+        const string commentId = "456";
+
+        _usersCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var removeResult, ErrorMessage? error) = await userService.RemoveCommentFromUser(userId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Komentar nije pronađen kod korisnika."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task RemoveCommentFromUser_ShouldReturnError_WhenExceptionIsThrown()
+    {
+        // Arrange
+        const string userId = "123";
+        const string commentId = "456";
+
+        _usersCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error."));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var removeResult, ErrorMessage? error) = await userService.RemoveCommentFromUser(userId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom uklanjanja korisnikovog komentara."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+    
     #endregion
 }

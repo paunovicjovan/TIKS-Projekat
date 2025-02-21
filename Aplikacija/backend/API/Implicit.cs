@@ -12,3 +12,4 @@ global using DataLayer.DTOs.Comment;
 global using Microsoft.AspNetCore.Authorization;
 global using DataLayer.Models;
 global using DataLayer.Interfaces;
+global using Microsoft.AspNetCore.Identity;
