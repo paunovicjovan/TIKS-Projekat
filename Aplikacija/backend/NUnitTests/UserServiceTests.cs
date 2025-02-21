@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using System.Security.Claims;
 
 namespace NUnitTests;
@@ -11,6 +11,8 @@ public class UserServiceTests
     private Mock<ITokenService> _tokenServiceMock;
     private Mock<IServiceProvider> _serviceProviderMock;
     private Mock<IPasswordHasher<User>> _passwordHasherMock;
+    private Mock<IMongoCollection<Estate>> _estatesCollectionMock;
+    private Mock<IAsyncCursor<Estate>> _estatesCursorMock;
 
     [SetUp]
     public void SetUp()
@@ -20,6 +22,8 @@ public class UserServiceTests
         _tokenServiceMock = new Mock<ITokenService>();
         _serviceProviderMock = new Mock<IServiceProvider>();
         _passwordHasherMock = new Mock<IPasswordHasher<User>>();
+        _estatesCollectionMock = new Mock<IMongoCollection<Estate>>();
+        _estatesCursorMock = new Mock<IAsyncCursor<Estate>>();
     }
 
     #region Register
@@ -737,7 +741,7 @@ public class UserServiceTests
             Username = username,
             PhoneNumber = "065 123 123"
         };
-        
+
         var existingUser = new User()
         {
             Id = "123",
@@ -793,9 +797,9 @@ public class UserServiceTests
     }
 
     #endregion
-    
+
     #region AddCommentToUser
-    
+
     [Test]
     public async Task AddCommentToUser_ShouldAddComment_WhenUserExists()
     {
@@ -826,7 +830,7 @@ public class UserServiceTests
             It.IsAny<UpdateOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
-    
+
     [Test]
     public async Task AddCommentToUser_ShouldReturnError_WhenUserDoesNotExist()
     {
@@ -859,7 +863,7 @@ public class UserServiceTests
             It.IsAny<UpdateOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
-    
+
     [Test]
     public async Task AddCommentToUser_ShouldReturnError_WhenExceptionOccurs()
     {
@@ -892,12 +896,12 @@ public class UserServiceTests
             It.IsAny<UpdateOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
-    
+
     #endregion
-    
-    
+
+
     #region RemoveCommentFromUser
-    
+
     [Test]
     public async Task RemoveCommentFromUser_ShouldRemoveComment_WhenCommentExists()
     {
@@ -930,7 +934,7 @@ public class UserServiceTests
             It.IsAny<UpdateOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
-    
+
     [Test]
     public async Task RemoveCommentFromUser_ShouldReturnError_WhenCommentNotFound()
     {
@@ -998,6 +1002,211 @@ public class UserServiceTests
             It.IsAny<UpdateOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
-    
+
     #endregion
+
+    #region AddPostToUser
+
+    [Test]
+    public async Task AddPostToUser_ShouldAddPost_WhenUserExists()
+    {
+        // Arrange
+        const string userId = "123";
+        const string postId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddPostToUser(userId, postId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(isSuccess, Is.True);
+        Assert.That(error, Is.Null);
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task AddPostToUser_ShouldReturnError_WhenUserDoesNotExist()
+    {
+        // Arrange
+        const string userId = "123";
+        const string postId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddPostToUser(userId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen ili nije ažuriran."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task AddPostToUser_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        const string userId = "123";
+        const string postId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error."));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddPostToUser(userId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom dodavanja objave korisniku."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region RemovePostFromUser
+
+    [Test]
+    public async Task RemovePostFromUser_ShouldRemovePost_WhenPostExists()
+    {
+        // Arrange
+        const string userId = "123";
+        const string postId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.RemovePostFromUser(userId, postId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(isSuccess, Is.True);
+        Assert.That(error, Is.Null);
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task RemovePostFromUser_ShouldReturnError_WhenPostDoesNotExist()
+    {
+        // Arrange
+        const string userId = "123";
+        const string postId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.RemovePostFromUser(userId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Objava nije pronađena kod korisnika."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task RemovePostFromUser_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        const string userId = "123";
+        const string postId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error."));
+
+        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
+            _serviceProviderMock.Object, _passwordHasherMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await userService.RemovePostFromUser(userId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom uklanjanja korisnikove objave."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
 }
