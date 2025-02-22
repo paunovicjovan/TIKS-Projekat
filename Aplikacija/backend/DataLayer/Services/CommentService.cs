@@ -95,6 +95,10 @@ public class CommentService : ICommentService
     {
         try
         {
+            const int maxCommentLength = 1000;
+            if (commentDto.Content.Trim().Length == 0 || commentDto.Content.Trim().Length > maxCommentLength)
+                return $"Komentar mora sadržati između 1 i {maxCommentLength} karaktera.".ToError();
+            
             var filter = Builders<Comment>.Filter.Eq(c => c.Id, commentId);
             var update = Builders<Comment>.Update.Set(c => c.Content, commentDto.Content);
 
