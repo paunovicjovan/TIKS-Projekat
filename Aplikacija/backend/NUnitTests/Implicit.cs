@@ -8,3 +8,5 @@ global using DataLayer.Interfaces;
 global using DataLayer.Enums;
 global using Microsoft.AspNetCore.Identity;
 global using System.Security.Claims;
+global using DataLayer.DTOs.Comment;
+

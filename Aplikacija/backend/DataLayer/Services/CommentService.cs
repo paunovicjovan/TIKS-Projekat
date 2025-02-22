@@ -18,6 +18,14 @@ public class CommentService : ICommentService
     {
         try
         {
+            const int maxCommentLength = 1000;
+            if (commentDto.Content.Trim().Length == 0 || commentDto.Content.Trim().Length > maxCommentLength)
+                return $"Komentar mora sadržati između 1 i {maxCommentLength} karaktera.".ToError();
+            
+            var userResult = await _userService.GetById(userId);
+            if (userResult.IsError)
+                return userResult.Error;
+            
             var newComment = new Comment
             {
                 Content = commentDto.Content,
@@ -35,10 +43,6 @@ public class CommentService : ICommentService
             var userUpdateResult = await _userService.AddCommentToUser(userId, newComment.Id!);
             if (userUpdateResult.IsError)
                 return userUpdateResult.Error;
-
-            var userResult = await _userService.GetById(userId);
-            if (userResult.IsError)
-                return userResult.Error;
 
             var resultDto = new CommentResultDTO
             {
