@@ -4,11 +4,11 @@ public class EstateService : IEstateService
 {
     private readonly IMongoCollection<Estate> _estatesCollection;
     private readonly IMongoCollection<User> _usersCollection;
-    private readonly UserService _userService;
-    private readonly PostService _postService;
+    private readonly IUserService _userService;
+    private readonly IPostService _postService;
 
     public EstateService(IMongoCollection<Estate> estatesCollection, IMongoCollection<User> usersCollection,
-        UserService userService, PostService postService)
+        IUserService userService, IPostService postService)
     {
         _estatesCollection = estatesCollection;
         _usersCollection = usersCollection;

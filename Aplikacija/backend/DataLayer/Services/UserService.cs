@@ -1,6 +1,6 @@
 ﻿namespace DataLayer.Services;
 
-public class UserService
+public class UserService : IUserService
 {
     private readonly IMongoCollection<User> _usersCollection;
     private readonly ITokenService _tokenService;

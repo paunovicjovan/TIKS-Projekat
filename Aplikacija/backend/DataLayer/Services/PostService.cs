@@ -1,15 +1,13 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿namespace DataLayer.Services;
 
-namespace DataLayer.Services;
-
-public class PostService
+public class PostService : IPostService
 {
     private readonly IMongoCollection<Post> _postsCollection;
 
-    private readonly UserService _userService;
+    private readonly IUserService _userService;
     private readonly IServiceProvider _serviceProvider;
 
-    public PostService(IMongoCollection<Post> postsCollection, UserService userService, IServiceProvider serviceProvider)
+    public PostService(IMongoCollection<Post> postsCollection, IUserService userService, IServiceProvider serviceProvider)
     {
         _postsCollection = postsCollection;
         _userService = userService;
@@ -43,7 +41,7 @@ public class PostService
             EstateResultDTO? estate = null;
             if (postDto.EstateId != null)
             {
-                EstateService estateService = _serviceProvider.GetRequiredService<EstateService>();
+                IEstateService estateService = _serviceProvider.GetRequiredService<IEstateService>();
                 var estateUpdateResult = await estateService.AddPostToEstate(postDto.EstateId, newPost.Id!);
                 if (estateUpdateResult.IsError)
                     return estateUpdateResult.Error;
@@ -205,13 +203,13 @@ public class PostService
 
             if (existingPost.EstateId != null)
             {
-                EstateService estateService = _serviceProvider.GetRequiredService<EstateService>();
+                IEstateService estateService = _serviceProvider.GetRequiredService<IEstateService>();
                 var estateUpdateResult = await estateService.RemovePostFromEstate(existingPost.EstateId, postId);
                 if (estateUpdateResult.IsError)
                     return estateUpdateResult.Error;
             }
 
-            var commentService = _serviceProvider.GetRequiredService<CommentService>();
+            var commentService = _serviceProvider.GetRequiredService<ICommentService>();
 
             foreach (var commentId in existingPost.CommentIds)
             {

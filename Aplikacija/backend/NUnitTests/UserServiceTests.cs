@@ -900,7 +900,6 @@ public class UserServiceTests
 
     #endregion
 
-
     #region RemoveCommentFromUser
 
     [Test]

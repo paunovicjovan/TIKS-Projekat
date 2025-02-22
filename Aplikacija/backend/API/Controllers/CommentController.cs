@@ -4,10 +4,10 @@
 [Route("api/[controller]")]
 public class CommentController : ControllerBase
 {
-    private readonly CommentService _commentService;
-    private readonly UserService _userService;
+    private readonly ICommentService _commentService;
+    private readonly IUserService _userService;
 
-    public CommentController(CommentService commentService, UserService userService)
+    public CommentController(ICommentService commentService, IUserService userService)
     {
         _commentService = commentService;
         _userService = userService;

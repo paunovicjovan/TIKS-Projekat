@@ -1,13 +1,13 @@
 ﻿namespace DataLayer.Services;
 
-public class CommentService
+public class CommentService : ICommentService
 {
     private readonly IMongoCollection<Comment> _commentsCollection;
-    private readonly UserService _userService;
-    private readonly PostService _postService;
+    private readonly IUserService _userService;
+    private readonly IPostService _postService;
 
-    public CommentService(IMongoCollection<Comment> commentsCollection, UserService userService,
-        PostService postService)
+    public CommentService(IMongoCollection<Comment> commentsCollection, IUserService userService,
+        IPostService postService)
     {
         _commentsCollection = commentsCollection;
         _userService = userService;

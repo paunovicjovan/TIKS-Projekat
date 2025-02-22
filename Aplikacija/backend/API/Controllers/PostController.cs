@@ -4,10 +4,10 @@
 [Route("api/[controller]")]
 public class PostController : ControllerBase
 {
-    private readonly PostService _postService;
-    private readonly UserService _userService;
+    private readonly IPostService _postService;
+    private readonly IUserService _userService;
 
-    public PostController(PostService postService, UserService userService)
+    public PostController(IPostService postService, IUserService userService)
     {
         _postService = postService;
         _userService = userService;

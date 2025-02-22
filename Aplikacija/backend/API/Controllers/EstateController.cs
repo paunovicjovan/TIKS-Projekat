@@ -8,10 +8,10 @@ namespace API.Controllers;
 [Route("api/[controller]")]
 public class EstateController : ControllerBase
 {
-    private readonly EstateService estateService;
-    private readonly UserService userService;
+    private readonly IEstateService estateService;
+    private readonly IUserService userService;
 
-    public EstateController(EstateService estate, UserService userService)
+    public EstateController(IEstateService estate, IUserService userService)
     {
         this.estateService = estate;
         this.userService = userService;

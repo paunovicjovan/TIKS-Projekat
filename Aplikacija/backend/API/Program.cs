@@ -19,9 +19,9 @@ builder.Services.AddSingleton(commentsCollection);
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<PostService>();
-builder.Services.AddScoped<CommentService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IEstateService, EstateService>();
 
 builder.Services.AddControllers().AddJsonOptions(opt =>
