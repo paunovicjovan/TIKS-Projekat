@@ -223,20 +223,20 @@ public class CommentServiceTests
             PostId = "789",
             CreatedAt = DateTime.Now
         };
-        
+
         _commentsCollectionMock
             .Setup(c => c.UpdateOneAsync(
-                It.IsAny<FilterDefinition<Comment>>(), 
+                It.IsAny<FilterDefinition<Comment>>(),
                 It.IsAny<UpdateDefinition<Comment>>(),
                 null,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
-        
+
         _commentsCursorMock
             .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
             .Returns(true)
             .Returns(false);
-        
+
         _commentsCursorMock
             .SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true)
@@ -244,7 +244,7 @@ public class CommentServiceTests
 
         _commentsCursorMock
             .Setup(cursor => cursor.Current)
-            .Returns(new List<Comment>() {updatedComment});
+            .Returns(new List<Comment>() { updatedComment });
 
         _commentsCollectionMock
             .Setup(collection => collection.FindAsync(It.IsAny<FilterDefinition<Comment>>(),
@@ -254,12 +254,12 @@ public class CommentServiceTests
 
         var author = new UserResultDTO
         {
-            Id = authorId, 
+            Id = authorId,
             Username = "Petar",
             Email = "petar@gmail.com",
             PhoneNumber = "062 1212 123"
         };
-    
+
         _userServiceMock
             .Setup(u => u.GetById(It.IsAny<string>()))
             .ReturnsAsync(author);
@@ -273,17 +273,17 @@ public class CommentServiceTests
         Assert.That(updatedCommentResult.Id, Is.EqualTo(commentId));
         Assert.That(updatedCommentResult.Content, Is.EqualTo(commentDto.Content));
         Assert.That(updatedCommentResult.Author.Id, Is.EqualTo(author.Id));
-        
+
         _commentsCollectionMock.Verify(c => c.UpdateOneAsync(
                 It.IsAny<FilterDefinition<Comment>>(),
-                It.IsAny<UpdateDefinition<Comment>>(), 
-                null, 
-                It.IsAny<CancellationToken>()), 
+                It.IsAny<UpdateDefinition<Comment>>(),
+                null,
+                It.IsAny<CancellationToken>()),
             Times.Once);
-        
+
         _userServiceMock.Verify(service => service.GetById(It.IsAny<string>()), Times.Once);
     }
-    
+
     [Test]
     public async Task UpdateComment_ShouldReturnError_WhenContentIsInvalid([Values(0, 1001)] int length)
     {
@@ -305,8 +305,8 @@ public class CommentServiceTests
 
         _commentsCollectionMock.Verify(c => c.UpdateOneAsync(
             It.IsAny<FilterDefinition<Comment>>(),
-            It.IsAny<UpdateDefinition<Comment>>(), 
-            null, It.IsAny<CancellationToken>()), 
+            It.IsAny<UpdateDefinition<Comment>>(),
+            null, It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -319,7 +319,7 @@ public class CommentServiceTests
 
         _commentsCollectionMock
             .Setup(c => c.UpdateOneAsync(
-                It.IsAny<FilterDefinition<Comment>>(), 
+                It.IsAny<FilterDefinition<Comment>>(),
                 It.IsAny<UpdateDefinition<Comment>>(),
                 null,
                 It.IsAny<CancellationToken>()))
@@ -333,12 +333,157 @@ public class CommentServiceTests
         Assert.That(error, Is.Not.Null);
         Assert.That(error.StatusCode, Is.EqualTo(400));
         Assert.That(error.Message, Is.EqualTo("Komentar nije pronađen ili nije izvršena promena."));
-        
+
         _commentsCollectionMock.Verify(c => c.UpdateOneAsync(
                 It.IsAny<FilterDefinition<Comment>>(),
-                It.IsAny<UpdateDefinition<Comment>>(), 
-                null, It.IsAny<CancellationToken>()), 
+                It.IsAny<UpdateDefinition<Comment>>(),
+                null, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    #endregion
+
+    #region DeleteComment
+
+    [Test]
+    public async Task DeleteComment_ShouldReturnTrue_WhenCommentIsDeletedSuccessfully()
+    {
+        // Arrange
+        var existingComment = new Comment()
+        {
+            Id = "123",
+            PostId = "456",
+            AuthorId = "789",
+            Content = "Ovo je komentar"
+        };
+
+        _commentsCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _commentsCursorMock
+            .SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _commentsCursorMock
+            .Setup(cursor => cursor.Current)
+            .Returns(new List<Comment> { existingComment });
+
+        _commentsCollectionMock
+            .Setup(collection => collection.FindAsync(It.IsAny<FilterDefinition<Comment>>(),
+                It.IsAny<FindOptions<Comment, Comment>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_commentsCursorMock.Object);
+
+        _commentsCollectionMock
+            .Setup(collection => collection.DeleteOneAsync(It.IsAny<FilterDefinition<Comment>>(), CancellationToken.None))
+            .ReturnsAsync(new DeleteResult.Acknowledged(1));
+
+        _postServiceMock
+            .Setup(service => service.RemoveCommentFromPost(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        _userServiceMock
+            .Setup(service => service.RemoveCommentFromUser(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        var commentService = new CommentService(
+            _commentsCollectionMock.Object,
+            _userServiceMock.Object,
+            _postServiceMock.Object);
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await commentService.DeleteComment("123");
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(isSuccess, Is.True);
+        Assert.That(error, Is.Null);
+
+        _commentsCollectionMock.Verify(collection => collection.DeleteOneAsync(It.IsAny<FilterDefinition<Comment>>(), CancellationToken.None), Times.Once);
+        _postServiceMock.Verify(service => service.RemoveCommentFromPost(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        _userServiceMock.Verify(service => service.RemoveCommentFromUser(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+    }
+
+    [Test]
+    public async Task DeleteComment_ShouldReturnError_WhenCommentNotFound()
+    {
+        // Arrange
+        var nonExistingCommentId = "999";
+
+        _commentsCollectionMock
+            .Setup(collection => collection.FindAsync(It.IsAny<FilterDefinition<Comment>>(),
+                It.IsAny<FindOptions<Comment, Comment>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Mock.Of<IAsyncCursor<Comment>>());
+
+        var commentService = new CommentService(
+            _commentsCollectionMock.Object,
+            _userServiceMock.Object,
+            _postServiceMock.Object);
+
+        // Act
+        (bool isError, var _, ErrorMessage? error) = await commentService.DeleteComment(nonExistingCommentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Komentar nije pronađen."));
+
+        _commentsCollectionMock.Verify(collection => collection.DeleteOneAsync(It.IsAny<FilterDefinition<Comment>>(), CancellationToken.None), Times.Never);
+        _postServiceMock.Verify(service => service.RemoveCommentFromPost(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _userServiceMock.Verify(service => service.RemoveCommentFromUser(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Test]
+    public async Task DeleteComment_ShouldReturnError_WhenDeleteFails()
+    {
+        // Arrange
+        var existingComment = new Comment()
+        {
+            Id = "123",
+            PostId = "456",
+            AuthorId = "789",
+            Content = "Ovo je komentar"
+        };
+
+        _commentsCursorMock
+            .Setup(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _commentsCursorMock
+            .Setup(cursor => cursor.Current)
+            .Returns(new List<Comment> { existingComment });
+
+        _commentsCollectionMock
+            .Setup(collection => collection.FindAsync(It.IsAny<FilterDefinition<Comment>>(),
+                It.IsAny<FindOptions<Comment, Comment>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_commentsCursorMock.Object);
+
+        _commentsCollectionMock
+            .Setup(collection => collection.DeleteOneAsync(It.IsAny<FilterDefinition<Comment>>(), CancellationToken.None))
+            .ReturnsAsync(new DeleteResult.Acknowledged(0));
+
+        var commentService = new CommentService(
+            _commentsCollectionMock.Object,
+            _userServiceMock.Object,
+            _postServiceMock.Object);
+
+        // Act
+        (bool isError, var _, ErrorMessage? error) = await commentService.DeleteComment("123");
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom brisanja komentara."));
+        
+        _commentsCollectionMock.Verify(collection => collection.DeleteOneAsync(It.IsAny<FilterDefinition<Comment>>(), CancellationToken.None), Times.Once);
+        _postServiceMock.Verify(service => service.RemoveCommentFromPost(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _userServiceMock.Verify(service => service.RemoveCommentFromUser(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     #endregion
