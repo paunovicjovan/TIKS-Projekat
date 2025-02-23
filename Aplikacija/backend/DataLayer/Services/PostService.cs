@@ -3,21 +3,27 @@
 public class PostService : IPostService
 {
     private readonly IMongoCollection<Post> _postsCollection;
-
     private readonly IUserService _userService;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IEstateService _estateService;
+    private readonly ICommentService _commentService;
 
-    public PostService(IMongoCollection<Post> postsCollection, IUserService userService, IServiceProvider serviceProvider)
+    public PostService(IMongoCollection<Post> postsCollection, IUserService userService,
+        IEstateService estateService, ICommentService commentService)
     {
         _postsCollection = postsCollection;
         _userService = userService;
-        _serviceProvider = serviceProvider;
+        _estateService = estateService;
+        _commentService = commentService;
     }
 
     public async Task<Result<PostResultDTO, ErrorMessage>> CreatePost(CreatePostDTO postDto, string userId)
     {
         try
         {
+            var userResult = await _userService.GetById(userId);
+            if (userResult.IsError)
+                return "Korisnik nije pronađen.".ToError(404);
+
             var newPost = new Post
             {
                 Title = postDto.Title,
@@ -34,19 +40,14 @@ public class PostService : IPostService
             if (userUpdateResult.IsError)
                 return userUpdateResult.Error;
 
-            var userResult = await _userService.GetById(userId);
-            if (userResult.IsError)
-                return userResult.Error;
-
             EstateResultDTO? estate = null;
             if (postDto.EstateId != null)
             {
-                IEstateService estateService = _serviceProvider.GetRequiredService<IEstateService>();
-                var estateUpdateResult = await estateService.AddPostToEstate(postDto.EstateId, newPost.Id!);
+                var estateUpdateResult = await _estateService.AddPostToEstate(postDto.EstateId, newPost.Id!);
                 if (estateUpdateResult.IsError)
                     return estateUpdateResult.Error;
 
-                var estateResult = await estateService.GetEstate(postDto.EstateId);
+                var estateResult = await _estateService.GetEstate(postDto.EstateId);
                 if (estateResult.IsError)
                     return estateResult.Error;
 
@@ -203,17 +204,14 @@ public class PostService : IPostService
 
             if (existingPost.EstateId != null)
             {
-                IEstateService estateService = _serviceProvider.GetRequiredService<IEstateService>();
-                var estateUpdateResult = await estateService.RemovePostFromEstate(existingPost.EstateId, postId);
+                var estateUpdateResult = await _estateService.RemovePostFromEstate(existingPost.EstateId, postId);
                 if (estateUpdateResult.IsError)
                     return estateUpdateResult.Error;
             }
 
-            var commentService = _serviceProvider.GetRequiredService<ICommentService>();
-
             foreach (var commentId in existingPost.CommentIds)
             {
-                await commentService.DeleteComment(commentId);
+                await _commentService.DeleteComment(commentId);
             }
 
             var deleteResult = await _postsCollection.DeleteOneAsync(p => p.Id == postId);
@@ -280,7 +278,7 @@ public class PostService : IPostService
             var posts = await _postsCollection.Aggregate()
                 .Match(p => p.AuthorId == userId)
                 .SortByDescending(p => p.CreatedAt)
-                .Skip((page-1)*pageSize)
+                .Skip((page - 1) * pageSize)
                 .Limit(pageSize)
                 .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
                 .Lookup("estates_collection", "EstateId", "_id", "EstateData")
@@ -288,7 +286,7 @@ public class PostService : IPostService
                 .ToListAsync();
 
             var postDtos = posts.Select(post => new PostResultDTO(post)).ToList();
-            
+
             var totalCount = await _postsCollection.CountDocumentsAsync(p => p.AuthorId == userId);
 
             return new PaginatedResponseDTO<PostResultDTO>
