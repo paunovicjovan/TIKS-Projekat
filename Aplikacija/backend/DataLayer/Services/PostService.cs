@@ -4,26 +4,19 @@ public class PostService : IPostService
 {
     private readonly IMongoCollection<Post> _postsCollection;
     private readonly IUserService _userService;
-    private readonly IEstateService _estateService;
-    private readonly ICommentService _commentService;
+    private readonly IServiceProvider _serviceProvider;
 
-    public PostService(IMongoCollection<Post> postsCollection, IUserService userService,
-        IEstateService estateService, ICommentService commentService)
+    public PostService(IMongoCollection<Post> postsCollection, IUserService userService, IServiceProvider serviceProvider)
     {
         _postsCollection = postsCollection;
         _userService = userService;
-        _estateService = estateService;
-        _commentService = commentService;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<Result<PostResultDTO, ErrorMessage>> CreatePost(CreatePostDTO postDto, string userId)
     {
         try
         {
-            var userResult = await _userService.GetById(userId);
-            if (userResult.IsError)
-                return "Korisnik nije pronađen.".ToError(404);
-
             var newPost = new Post
             {
                 Title = postDto.Title,
@@ -40,14 +33,19 @@ public class PostService : IPostService
             if (userUpdateResult.IsError)
                 return userUpdateResult.Error;
 
+            var userResult = await _userService.GetById(userId);
+            if (userResult.IsError)
+                return userResult.Error;
+
             EstateResultDTO? estate = null;
             if (postDto.EstateId != null)
             {
-                var estateUpdateResult = await _estateService.AddPostToEstate(postDto.EstateId, newPost.Id!);
+                IEstateService estateService = _serviceProvider.GetRequiredService<IEstateService>();
+                var estateUpdateResult = await estateService.AddPostToEstate(postDto.EstateId, newPost.Id!);
                 if (estateUpdateResult.IsError)
                     return estateUpdateResult.Error;
 
-                var estateResult = await _estateService.GetEstate(postDto.EstateId);
+                var estateResult = await estateService.GetEstate(postDto.EstateId);
                 if (estateResult.IsError)
                     return estateResult.Error;
 
@@ -204,14 +202,17 @@ public class PostService : IPostService
 
             if (existingPost.EstateId != null)
             {
-                var estateUpdateResult = await _estateService.RemovePostFromEstate(existingPost.EstateId, postId);
+                IEstateService estateService = _serviceProvider.GetRequiredService<IEstateService>();
+                var estateUpdateResult = await estateService.RemovePostFromEstate(existingPost.EstateId, postId);
                 if (estateUpdateResult.IsError)
                     return estateUpdateResult.Error;
             }
 
+            var commentService = _serviceProvider.GetRequiredService<ICommentService>();
+
             foreach (var commentId in existingPost.CommentIds)
             {
-                await _commentService.DeleteComment(commentId);
+                await commentService.DeleteComment(commentId);
             }
 
             var deleteResult = await _postsCollection.DeleteOneAsync(p => p.Id == postId);
