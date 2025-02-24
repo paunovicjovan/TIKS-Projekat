@@ -1,5 +1,6 @@
 using DataLayer.DTOs.Estate;
 using DataLayer.DTOs.Post;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace NUnitTests;
 
@@ -10,6 +11,7 @@ public class PostServiceTests
     private Mock<IAsyncCursor<Post>> _postsCursorMock;
     private Mock<IUserService> _userServiceMock;
     private Mock<IEstateService> _estateServiceMock;
+    private Mock<ICommentService> _commentServiceMock;
     private Mock<IServiceProvider> _serviceProviderMock;
     private PostService _postService;
 
@@ -20,6 +22,7 @@ public class PostServiceTests
         _postsCursorMock = new Mock<IAsyncCursor<Post>>();
         _userServiceMock = new Mock<IUserService>();
         _estateServiceMock = new Mock<IEstateService>();
+        _commentServiceMock = new Mock<ICommentService>();
         _serviceProviderMock = new Mock<IServiceProvider>();
         _postService = new PostService(
             _postsCollectionMock.Object,
@@ -268,7 +271,7 @@ public class PostServiceTests
     }
 
     [Test]
-    public async Task UpdatePost_ShouldReturnError_WhenPostNotFound()
+    public async Task UpdatePost_ShouldReturnError_WhenPostDoesNotExist()
     {
         // Arrange
         var postId = "123";
@@ -345,11 +348,165 @@ public class PostServiceTests
         Assert.That(error, Is.Null);
 
         _postsCollectionMock.Verify(collection => collection.ReplaceOneAsync(
-            It.IsAny<FilterDefinition<Post>>(),
-            It.IsAny<Post>(),
-            It.IsAny<ReplaceOptions>(), 
-            It.IsAny<CancellationToken>()), 
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<Post>(),
+                It.IsAny<ReplaceOptions>(),
+                It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    #endregion
+
+    #region DeletePost
+
+    [Test]
+    public async Task DeletePost_ShouldReturnTrue_WhenDeletionIsSuccessful()
+    {
+        // Arrange
+        var postId = "123";
+        var existingPost = new Post
+        {
+            Id = postId,
+            Title = "Post",
+            Content = "Content",
+            AuthorId = "456",
+            EstateId = "789",
+            CommentIds = new List<string> { "c1", "c2" }
+        };
+
+        _postsCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _postsCursorMock.Setup(x => x.Current).Returns(new List<Post> { existingPost });
+
+        _postsCollectionMock
+            .Setup(x => x.FindAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<FindOptions<Post>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_postsCursorMock.Object);
+
+        _userServiceMock
+            .Setup(x => x.RemovePostFromUser(existingPost.AuthorId, postId))
+            .ReturnsAsync(true);
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(IEstateService)))
+            .Returns(_estateServiceMock.Object);
+
+        _estateServiceMock
+            .Setup(x => x.RemovePostFromEstate(existingPost.EstateId, postId))
+            .ReturnsAsync(true);
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(ICommentService)))
+            .Returns(_commentServiceMock.Object);
+
+        _commentServiceMock
+            .Setup(x => x.DeleteComment(It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        _postsCollectionMock
+            .Setup(x => x.DeleteOneAsync(It.IsAny<FilterDefinition<Post>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DeleteResult.Acknowledged(1));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.DeletePost(postId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+        Assert.That(error, Is.Null);
+
+        _userServiceMock.Verify(x => x.RemovePostFromUser(existingPost.AuthorId, postId), Times.Once);
+        _estateServiceMock.Verify(x => x.RemovePostFromEstate(existingPost.EstateId, postId), Times.Once);
+        _postsCollectionMock.Verify(
+            x => x.DeleteOneAsync(It.IsAny<FilterDefinition<Post>>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task DeletePost_ShouldReturnError_WhenPostDoesNotExist()
+    {
+        // Arrange
+        var postId = "123";
+
+        _postsCursorMock.Setup(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _postsCollectionMock
+            .Setup(x => x.FindAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<FindOptions<Post>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_postsCursorMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.DeletePost(postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(404));
+        Assert.That(error.Message, Is.EqualTo("Objava sa datim ID-jem ne postoji."));
+
+        _userServiceMock.Verify(x => x.RemovePostFromUser(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _estateServiceMock.Verify(x => x.RemovePostFromEstate(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _commentServiceMock.Verify(x => x.DeleteComment(It.IsAny<string>()), Times.Never);
+        _postsCollectionMock.Verify(
+            x => x.DeleteOneAsync(It.IsAny<FilterDefinition<Post>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task DeletePost_ShouldReturnError_WhenDeletionFails()
+    {
+        // Arrange
+        var postId = "123";
+        var existingPost = new Post
+        {
+            Id = postId,
+            Title = "Post",
+            Content = "Content",
+            AuthorId = "456",
+            EstateId = "789",
+            CommentIds = new List<string> { "c1", "c2" }
+        };
+
+        _postsCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _postsCursorMock.Setup(x => x.Current).Returns(new List<Post> { existingPost });
+
+        _postsCollectionMock
+            .Setup(x => x.FindAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<FindOptions<Post>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_postsCursorMock.Object);
+
+        _userServiceMock
+            .Setup(x => x.RemovePostFromUser(existingPost.AuthorId, postId))
+            .ReturnsAsync(true);
+
+        _estateServiceMock
+            .Setup(x => x.RemovePostFromEstate(existingPost.EstateId, postId))
+            .ReturnsAsync(true);
+
+        _commentServiceMock
+            .Setup(x => x.DeleteComment(It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        _postsCollectionMock
+            .Setup(x => x.DeleteOneAsync(It.IsAny<FilterDefinition<Post>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DeleteResult.Acknowledged(0));
+
+        // Act
+        (bool isError, _, var error) = await _postService.DeletePost(postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom brisanja objave."));
     }
 
     #endregion

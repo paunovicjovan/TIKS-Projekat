@@ -196,7 +196,7 @@ public class PostService : IPostService
 
             if (existingPost == null)
             {
-                return "Objava sa datim ID-jem ne postoji.".ToError();
+                return "Objava sa datim ID-jem ne postoji.".ToError(404);
             }
 
             var userUpdateResult = await _userService.RemovePostFromUser(existingPost.AuthorId, postId);
