@@ -144,7 +144,7 @@ public class CommentServiceTests
     #region GetCommentsForPost
 
     [Test]
-    [Ignore("Ne radi jos")]
+    [Ignore("Nece")]
     public async Task GetCommentsForPost_ShouldReturnComments_WhenDataIsValid()
     {
         // Arrange
@@ -285,13 +285,13 @@ public class CommentServiceTests
     }
 
     [Test]
-    public async Task UpdateComment_ShouldReturnError_WhenContentIsInvalid([Values(0, 1001)] int length)
+    public async Task UpdateComment_ShouldReturnError_WhenContentIsInvalid([Values(0, 1001)] int contentLength)
     {
         // Arrange
         const string commentId = "123";
         var commentDto = new UpdateCommentDTO
         {
-            Content = new string('a', length)
+            Content = new string('a', contentLength)
         };
 
         // Act

@@ -17,6 +17,10 @@ public class PostService : IPostService
     {
         try
         {
+            var userResult = await _userService.GetById(userId);
+            if (userResult.IsError)
+                return userResult.Error;
+            
             var newPost = new Post
             {
                 Title = postDto.Title,
@@ -32,10 +36,6 @@ public class PostService : IPostService
             var userUpdateResult = await _userService.AddPostToUser(userId, newPost.Id!);
             if (userUpdateResult.IsError)
                 return userUpdateResult.Error;
-
-            var userResult = await _userService.GetById(userId);
-            if (userResult.IsError)
-                return userResult.Error;
 
             EstateResultDTO? estate = null;
             if (postDto.EstateId != null)
@@ -173,7 +173,10 @@ public class PostService : IPostService
             existingPost.Title = postDto.Title;
             existingPost.Content = postDto.Content;
 
-            var res = await _postsCollection.ReplaceOneAsync(p => p.Id == postId, existingPost);
+            var replaceOneResult = await _postsCollection.ReplaceOneAsync(p => p.Id == postId, existingPost);
+
+            if (replaceOneResult.ModifiedCount == 0)
+                return false;
 
             return true;
         }
