@@ -1,6 +1,7 @@
 using DataLayer.DTOs.Estate;
 using DataLayer.DTOs.Post;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson.Serialization;
 
 namespace NUnitTests;
 
@@ -204,6 +205,65 @@ public class PostServiceTests
 
     //TODO: testovi za GetPostById
 
+    [Test]
+    [Ignore("Nece")]
+    public async Task GetPostById_ShouldReturnPost_WhenPostExists()
+    {
+        // Arrange
+        var postId = ObjectId.GenerateNewId();
+        var authorId = ObjectId.GenerateNewId();
+        var estateId = ObjectId.GenerateNewId();
+
+        var authorDoc = new BsonDocument
+        {
+            { "_id", authorId },
+            { "Username", "testuser" },
+            { "Email", "testuser@example.com" },
+            { "PhoneNumber", "123456789" },
+            { "Role", (int)UserRole.User }
+        };
+
+        var postBson = new BsonDocument
+        {
+            { "_id", postId },
+            { "Title", "Test Post" },
+            { "Content", "This is a test post." },
+            { "CreatedAt", DateTime.UtcNow },
+            { "AuthorData", new BsonArray { authorDoc } }
+        };
+
+        var aggregateFluentMockDocument = new Mock<IAggregateFluent<BsonDocument>>();
+        var aggregateFluentMockPost = new Mock<IAggregateFluent<Post>>();
+        // _postsCollectionMock.Setup(c => c.Aggregate(It.IsAny<AggregateOptions>()))
+        //     .Returns(aggregateFluentMockPost.Object);
+
+        _postsCollectionMock.SetupGet(c => c.DocumentSerializer)
+            .Returns(BsonSerializer.LookupSerializer<Post>());
+        
+        aggregateFluentMockPost.Setup(a => a.Match(It.IsAny<FilterDefinition<Post>>()))
+            .Returns(aggregateFluentMockPost.Object);
+        aggregateFluentMockPost.Setup(a => a.Lookup(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Returns(aggregateFluentMockDocument.Object);
+        aggregateFluentMockDocument.Setup(a => a.Lookup(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Returns(aggregateFluentMockDocument.Object);
+        aggregateFluentMockDocument.Setup(a => a.As<BsonDocument>(null))
+            .Returns(aggregateFluentMockDocument.Object);
+        aggregateFluentMockDocument.Setup(a => a.FirstOrDefaultAsync(default))
+            .ReturnsAsync(postBson);
+
+        // Act
+        (bool isError, var post, ErrorMessage? error) = await _postService.GetPostById(postId.ToString());
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(post, Is.Not.Null);
+        Assert.That(post.Title, Is.EqualTo("Test Post"));
+        Assert.That(post.Author, Is.Not.Null);
+        Assert.That(post.Author.Username, Is.EqualTo("testuser"));
+        Assert.That(post.Estate, Is.Null);
+    }
+
+    
     #endregion
 
     #region GetAllPostsForEstate
@@ -530,9 +590,7 @@ public class PostServiceTests
                 It.IsAny<UpdateDefinition<Post>>(),
                 null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
-
-        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
-
+        
         // Act
         (bool isError, var result, ErrorMessage? error) = await _postService.AddCommentToPost(postId, commentId);
 
@@ -564,9 +622,7 @@ public class PostServiceTests
                 It.IsAny<UpdateDefinition<Post>>(),
                 null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 0, null));
-
-        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
-
+        
         // Act
         (bool isError, var result, ErrorMessage? error) = await _postService.AddCommentToPost(postId, commentId);
 
@@ -600,9 +656,7 @@ public class PostServiceTests
                 It.IsAny<UpdateDefinition<Post>>(),
                 null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
-
-        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
-
+        
         // Act
         (bool isError, var result, ErrorMessage? error) = await _postService.AddCommentToPost(postId, commentId);
 
@@ -642,8 +696,6 @@ public class PostServiceTests
                 null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
 
-        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
-
         // Act
         (bool isError, var result, ErrorMessage? error) = await _postService.RemoveCommentFromPost(postId, commentId);
 
@@ -675,9 +727,7 @@ public class PostServiceTests
                 It.IsAny<UpdateDefinition<Post>>(),
                 null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 0, null));
-
-        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
-
+        
         // Act
         (bool isError, var result, ErrorMessage? error) = await _postService.RemoveCommentFromPost(postId, commentId);
 
@@ -711,9 +761,7 @@ public class PostServiceTests
                 It.IsAny<UpdateDefinition<Post>>(),
                 null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
-
-        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
-
+        
         // Act
         (bool isError, var result, ErrorMessage? error) = await _postService.RemoveCommentFromPost(postId, commentId);
 

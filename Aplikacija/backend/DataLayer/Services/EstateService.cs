@@ -101,9 +101,8 @@ public class EstateService : IEstateService
                 return "Došlo je do greške prilikom traženja korisnika.".ToError();
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine(ex.Message);
             return "Došlo je do greške prilikom kreiranja nekretnine.".ToError();
         }
     }
