@@ -510,4 +510,232 @@ public class PostServiceTests
     }
 
     #endregion
+
+    #region AddCommentToPost
+
+    [Test]
+    public async Task AddCommentToPost_ShouldReturnTrue_WhenCommentIsAddedSuccessfully()
+    {
+        // Arrange
+        var postId = "123";
+        var commentId = "456";
+
+        _postsCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _postsCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.AddCommentToPost(postId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+
+        _postsCollectionMock.Verify(collection =>
+            collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task AddCommentToPost_ShouldReturnError_WhenPostNotFound()
+    {
+        // Arrange
+        var postId = "123";
+        var commentId = "456";
+
+        _postsCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _postsCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 0, null));
+
+        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.AddCommentToPost(postId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Objava nije pronađena ili nije ažurirana."));
+
+        _postsCollectionMock.Verify(collection =>
+            collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task AddCommentToPost_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var postId = "123";
+        var commentId = "456";
+
+        _postsCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _postsCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.AddCommentToPost(postId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom dodavanja komentara objavi."));
+
+        _postsCollectionMock.Verify(collection =>
+            collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    #endregion
+
+    #region RemoveCommentFromPost
+
+    [Test]
+    public async Task RemoveCommentFromPost_ShouldReturnTrue_WhenCommentIsRemovedSuccessfully()
+    {
+        // Arrange
+        var postId = "123";
+        var commentId = "456";
+
+        _postsCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _postsCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.RemoveCommentFromPost(postId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+
+        _postsCollectionMock.Verify(collection =>
+            collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task RemoveCommentFromPost_ShouldReturnError_WhenCommentNotFoundOnPost()
+    {
+        // Arrange
+        var postId = "123";
+        var commentId = "456";
+
+        _postsCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _postsCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 0, null));
+
+        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.RemoveCommentFromPost(postId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Komentar nije pronađen na objavi."));
+
+        _postsCollectionMock.Verify(collection =>
+            collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task RemoveCommentFromPost_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var postId = "123";
+        var commentId = "456";
+
+        _postsCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _postsCollectionMock
+            .Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        var _postService = new PostService(_postsCollectionMock.Object, _userServiceMock.Object, _serviceProviderMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.RemoveCommentFromPost(postId, commentId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom uklanjanja komentara sa objave."));
+
+        _postsCollectionMock.Verify(collection =>
+            collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Post>>(),
+                It.IsAny<UpdateDefinition<Post>>(),
+                null, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    #endregion
+
+    #region GetUserPosts
+
+    //TODO: testovi za GetUserPosts
+
+    #endregion
 }

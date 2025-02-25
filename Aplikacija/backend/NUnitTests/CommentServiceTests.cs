@@ -203,6 +203,7 @@ public class CommentServiceTests
         Assert.That(paginatedComments.TotalLength, Is.EqualTo(totalCount));
     }
 
+
     #endregion
 
     #region UpdateComment
@@ -480,7 +481,7 @@ public class CommentServiceTests
         Assert.That(isError, Is.True);
         Assert.That(error, Is.Not.Null);
         Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom brisanja komentara."));
-        
+
         _commentsCollectionMock.Verify(collection => collection.DeleteOneAsync(It.IsAny<FilterDefinition<Comment>>(), CancellationToken.None), Times.Once);
         _postServiceMock.Verify(service => service.RemoveCommentFromPost(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         _userServiceMock.Verify(service => service.RemoveCommentFromUser(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
