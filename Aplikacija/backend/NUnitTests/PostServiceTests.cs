@@ -206,7 +206,7 @@ public class PostServiceTests
     //TODO: testovi za GetPostById
 
     [Test]
-    [Ignore("Nece")]
+    // [Ignore("Nece")]
     public async Task GetPostById_ShouldReturnPost_WhenPostExists()
     {
         // Arrange
@@ -234,22 +234,63 @@ public class PostServiceTests
 
         var aggregateFluentMockDocument = new Mock<IAggregateFluent<BsonDocument>>();
         var aggregateFluentMockPost = new Mock<IAggregateFluent<Post>>();
-        // _postsCollectionMock.Setup(c => c.Aggregate(It.IsAny<AggregateOptions>()))
-        //     .Returns(aggregateFluentMockPost.Object);
 
         _postsCollectionMock.SetupGet(c => c.DocumentSerializer)
             .Returns(BsonSerializer.LookupSerializer<Post>());
         
         aggregateFluentMockPost.Setup(a => a.Match(It.IsAny<FilterDefinition<Post>>()))
             .Returns(aggregateFluentMockPost.Object);
-        aggregateFluentMockPost.Setup(a => a.Lookup(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        
+        // Kreiramo mock za IMongoDatabase
+        var databaseMock = new Mock<IMongoDatabase>();
+
+// Kreiramo mock za IMongoCollection<BsonDocument>
+        var foreignCollectionMock = new Mock<IMongoCollection<BsonDocument>>();
+
+// Postavljamo da databaseMock vraća foreignCollectionMock kada se pozove GetCollection<BsonDocument>
+        databaseMock
+            .Setup(db => db.GetCollection<BsonDocument>(It.IsAny<string>(), null))
+            .Returns(foreignCollectionMock.Object);
+
+// Mockujemo Database properti na aggregateFluentMockDocument
+        aggregateFluentMockPost
+            .SetupGet(a => a.Database)
+            .Returns(databaseMock.Object);
+        
+        aggregateFluentMockDocument
+            .SetupGet(a => a.Database)
+            .Returns(databaseMock.Object);
+        
+        // aggregateFluentMockPost.Setup(a => a.Lookup(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        //     .Returns(aggregateFluentMockDocument.Object);
+        // aggregateFluentMockDocument.Setup(a => a.Lookup(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        //     .Returns(aggregateFluentMockDocument.Object);
+        aggregateFluentMockPost
+            .Setup(a => a.AppendStage(It.IsAny<PipelineStageDefinition<Post, BsonDocument>>()))
             .Returns(aggregateFluentMockDocument.Object);
-        aggregateFluentMockDocument.Setup(a => a.Lookup(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        aggregateFluentMockDocument
+            .Setup(a => a.AppendStage(It.IsAny<PipelineStageDefinition<BsonDocument, BsonDocument>>()))
             .Returns(aggregateFluentMockDocument.Object);
         aggregateFluentMockDocument.Setup(a => a.As<BsonDocument>(null))
             .Returns(aggregateFluentMockDocument.Object);
-        aggregateFluentMockDocument.Setup(a => a.FirstOrDefaultAsync(default))
-            .ReturnsAsync(postBson);
+        
+        var asyncCursorMock = new Mock<IAsyncCursor<BsonDocument>>();
+        asyncCursorMock
+            .SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)  // Prvi put vraća true (postoji podatak)
+            .ReturnsAsync(false); // Drugi put vraća false (nema više podataka)
+        
+        asyncCursorMock
+            .SetupGet(x => x.Current)
+            .Returns(new List<BsonDocument> { postBson }); // Vraća listu sa jednim dokumentom
+
+// Mock za IAggregateFluent<BsonDocument>
+        aggregateFluentMockDocument
+            .Setup(a => a.ToCursorAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(asyncCursorMock.Object);
+        
+        // aggregateFluentMockDocument.Setup(a => a.FirstOrDefaultAsync(default))
+        //     .ReturnsAsync(postBson);
 
         // Act
         (bool isError, var post, ErrorMessage? error) = await _postService.GetPostById(postId.ToString());

@@ -107,12 +107,20 @@ public class PostService : IPostService
     {
         try
         {
-            var post = await _postsCollection.Aggregate()
-                .Match(Builders<Post>.Filter.Eq("_id", ObjectId.Parse(postId)))
-                .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
-                .Lookup("estates_collection", "EstateId", "_id", "EstateData")
-                .As<BsonDocument>()
-                .FirstOrDefaultAsync();
+            // var post = await _postsCollection.Aggregate()
+            //     .Match(Builders<Post>.Filter.Eq("_id", ObjectId.Parse(postId)))
+            //     .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
+            //     .Lookup("estates_collection", "EstateId", "_id", "EstateData")
+            //     .As<BsonDocument>()
+            //     .FirstOrDefaultAsync();
+
+            var agr = _postsCollection.Aggregate();
+            var match = agr.Match(Builders<Post>.Filter.Eq("_id", ObjectId.Parse(postId)));
+            var lookup = match.Lookup("users_collection", "AuthorId", "_id", "AuthorData");
+            var lookup2 = lookup.Lookup("estates_collection", "EstateId", "_id", "EstateData");
+            var as1 = lookup2.As<BsonDocument>();
+            var first = as1.FirstOrDefaultAsync();
+            var post = await first;
 
             if (post == null)
                 return "Post nije pronađen.".ToError(404);
@@ -121,7 +129,7 @@ public class PostService : IPostService
 
             return postDto;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             return "Došlo je do greške prilikom preuzimanja objave.".ToError();
         }
