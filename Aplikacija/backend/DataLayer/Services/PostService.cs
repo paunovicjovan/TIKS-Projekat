@@ -129,7 +129,7 @@ public class PostService : IPostService
 
             return postDto;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return "Došlo je do greške prilikom preuzimanja objave.".ToError();
         }
