@@ -5,13 +5,15 @@ public class CommentService : ICommentService
     private readonly IMongoCollection<Comment> _commentsCollection;
     private readonly IUserService _userService;
     private readonly IPostService _postService;
+    private readonly ICommentAggregationRepository _commentAggregationRepository;
 
     public CommentService(IMongoCollection<Comment> commentsCollection, IUserService userService,
-        IPostService postService)
+        IPostService postService, ICommentAggregationRepository commentAggregationRepository)
     {
         _commentsCollection = commentsCollection;
         _userService = userService;
         _postService = postService;
+        _commentAggregationRepository = commentAggregationRepository;
     }
 
     public async Task<Result<CommentResultDTO, ErrorMessage>> CreateComment(CreateCommentDTO commentDto, string userId)
@@ -65,14 +67,7 @@ public class CommentService : ICommentService
     {
         try
         {
-            var comments = await _commentsCollection.Aggregate()
-                .Match(comment => comment.PostId == postId)
-                .Sort(Builders<Comment>.Sort.Descending(p => p.CreatedAt))
-                .Skip(skip)
-                .Limit(limit)
-                .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
-                .As<BsonDocument>()
-                .ToListAsync();
+            var comments = await _commentAggregationRepository.GetCommentsForPost(_commentsCollection, postId, skip, limit);
 
             var commentsDtos = comments.Select(comment => new CommentResultDTO(comment)).ToList();
 
@@ -84,7 +79,7 @@ public class CommentService : ICommentService
                 TotalLength = totalCount
             };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             return "Došlo je do greške prilikom preuzimanja komentara.".ToError();
         }

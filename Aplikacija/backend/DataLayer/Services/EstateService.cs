@@ -104,7 +104,7 @@ public class EstateService : IEstateService
 
             return estate;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return "Došlo je do greške prilikom kreiranja nekretnine.".ToError();
         }
