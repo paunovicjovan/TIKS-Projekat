@@ -36,7 +36,8 @@ public class EstateServiceTests
         // Arrange
         var estates = new List<Estate>
         {
-            new Estate {
+            new Estate
+            {
                 Id = "1",
                 Title = "Estate 1",
                 Description = "Opis1",
@@ -47,7 +48,8 @@ public class EstateServiceTests
                 Images = ["image1.jpg", "image2.jpg"],
                 UserId = "123"
             },
-            new Estate {
+            new Estate
+            {
                 Id = "2",
                 Title = "Estate 2",
                 Description = "Opis2",
@@ -250,4 +252,128 @@ public class EstateServiceTests
 
     #endregion
 
+    #region CreateEstate
+
+    [Test]
+    public async Task CreateEstate_ShouldReturnEstate_WhenCreationIsSuccessful()
+    {
+        // Arrange
+
+        var fileMock = new Mock<IFormFile>();
+        fileMock.Setup(f => f.FileName).Returns("test.jpg");
+        fileMock.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var newEstateDto = new EstateCreateDTO
+        {
+            Title = "Stan",
+            Description = "Opis stana",
+            Price = 100000,
+            SquareMeters = 80,
+            TotalRooms = 3,
+            Category = EstateCategory.Flat,
+            FloorNumber = 2,
+            Images = [fileMock.Object, fileMock.Object],
+            Longitude = 20.1234,
+            Latitude = 44.5678
+        };
+
+        const string generatedEstateId = "123";
+
+        _estatesCollectionMock.Setup(c =>
+                c.InsertOneAsync(It.IsAny<Estate>(), It.IsAny<InsertOneOptions>(), It.IsAny<CancellationToken>()))
+            .Callback<Estate, InsertOneOptions?, CancellationToken>((estate, _, _) =>
+            {
+                estate.Id = generatedEstateId;
+            })
+            .Returns(Task.CompletedTask);
+
+        const string userId = "456";
+        // Act
+        (bool isError, var estateResult, ErrorMessage? error) = await _estateService.CreateEstate(newEstateDto, userId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(estateResult, Is.Not.Null);
+        Assert.That(estateResult.Title, Is.EqualTo(newEstateDto.Title));
+        Assert.That(estateResult.Description, Is.EqualTo(newEstateDto.Description));
+        Assert.That(estateResult.Price, Is.EqualTo(newEstateDto.Price));
+        Assert.That(estateResult.SquareMeters, Is.EqualTo(newEstateDto.SquareMeters));
+        Assert.That(estateResult.TotalRooms, Is.EqualTo(newEstateDto.TotalRooms));
+        Assert.That(estateResult.Category, Is.EqualTo(newEstateDto.Category));
+        Assert.That(estateResult.FloorNumber, Is.EqualTo(newEstateDto.FloorNumber));
+        Assert.That(estateResult.Images, Has.Count.EqualTo(newEstateDto.Images.Length));
+        Assert.That(estateResult.Longitude, Is.EqualTo(newEstateDto.Longitude).Within(0.0001));
+        Assert.That(estateResult.Latitude, Is.EqualTo(newEstateDto.Latitude).Within(0.0001));
+        Assert.That(estateResult.UserId, Is.EqualTo(userId));
+
+        _estatesCollectionMock.Verify(x => x.InsertOneAsync(It.IsAny<Estate>(), null, default), Times.Once);
+    }
+
+    [Test]
+    public async Task CreateEstate_ShouldReturnError_WhenNoImagesAreProvided()
+    {
+        // Arrange
+        var newEstateDto = new EstateCreateDTO
+        {
+            Title = "Stan",
+            Description = "Opis stana",
+            Price = 100000,
+            SquareMeters = 80,
+            TotalRooms = 3,
+            Category = EstateCategory.Flat,
+            FloorNumber = 2,
+            Longitude = 20.1234,
+            Latitude = 44.5678,
+            Images = []
+        };
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.CreateEstate(newEstateDto, "123");
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Nekretnina mora sadržati barem jednu sliku."));
+        _estatesCollectionMock.Verify(x => x.InsertOneAsync(It.IsAny<Estate>(), null, It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Test]
+    public async Task CreateEstate_ShouldReturnError_WhenImageSavingFails()
+    {
+        // Arrange
+        var failingFileMock = new Mock<IFormFile>();
+        failingFileMock.Setup(f => f.FileName).Returns("image.jpg");
+        failingFileMock.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException("Greška pri snimanju fajla"));
+
+        var newEstateDto = new EstateCreateDTO
+        {
+            Title = "Test Estate",
+            Description = "Test Description",
+            Price = 100000,
+            SquareMeters = 80,
+            TotalRooms = 3,
+            Category = EstateCategory.Flat,
+            FloorNumber = 2,
+            Longitude = 20.1234,
+            Latitude = 44.5678,
+            Images = [failingFileMock.Object]
+        };
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.CreateEstate(newEstateDto, "123");
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom kreiranja nekretnine."));
+        _estatesCollectionMock.Verify(x => x.InsertOneAsync(It.IsAny<Estate>(), null, It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    #endregion
 }

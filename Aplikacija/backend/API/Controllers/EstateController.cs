@@ -21,13 +21,13 @@ public class EstateController : ControllerBase
     [Authorize]
     public async Task<IActionResult> CreateEstate([FromForm] EstateCreateDTO newEstate)
     {
-        var user = userService.GetCurrentUserId(User);
-        if (user.IsError)
+        var userResult = userService.GetCurrentUserId(User);
+        if (userResult.IsError)
         {
-            return StatusCode(400, "Failed to retrieve user ID.");
+            return StatusCode(userResult.Error?.StatusCode ?? 400, userResult.Error?.Message);
         }
 
-        (bool isError, var response, ErrorMessage? error) = await estateService.CreateEstate(newEstate, user.Data);
+        (bool isError, var response, ErrorMessage? error) = await estateService.CreateEstate(newEstate, userResult.Data);
 
         if (isError)
         {

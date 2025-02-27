@@ -54,54 +54,57 @@ public class EstateService : IEstateService
         }
     }
 
-    public async Task<Result<Estate, ErrorMessage>> CreateEstate(EstateCreateDTO newEstateDto, string? userId)
+    public async Task<Result<Estate, ErrorMessage>> CreateEstate(EstateCreateDTO newEstateDto, string userId)
     {
         try
         {
-            if (userId != null)
+            var imagePaths = new List<string>();
+
+            if (!newEstateDto.Images.Any())
             {
-                var imagePaths = new List<string>();
+                return "Nekretnina mora sadržati barem jednu sliku.".ToError();
+            }
 
-                foreach (var file in newEstateDto.Images)
+            foreach (var file in newEstateDto.Images)
+            {
+                var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+                var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "EstateImages");
+
+                if (!Directory.Exists(path))
                 {
-                    var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
-                    var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "EstateImages");
-
-                    var filePath = Path.Combine(path, fileName);
-
-                    await using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(stream);
-                    }
-
-                    imagePaths.Add("/EstateImages/" + fileName);
+                    Directory.CreateDirectory(path);
                 }
 
-                var estate = new Estate
+                var filePath = Path.Combine(path, fileName);
+
+                await using (var stream = new FileStream(filePath, FileMode.Create))
                 {
-                    Title = newEstateDto.Title,
-                    Description = newEstateDto.Description,
-                    Price = newEstateDto.Price,
-                    SquareMeters = newEstateDto.SquareMeters,
-                    TotalRooms = newEstateDto.TotalRooms,
-                    Category = newEstateDto.Category,
-                    FloorNumber = newEstateDto.FloorNumber,
-                    Images = imagePaths,
-                    Longitude = newEstateDto.Longitude,
-                    Latitude = newEstateDto.Latitude,
-                    UserId = userId
-                };
+                    await file.CopyToAsync(stream);
+                }
 
-                await _estatesCollection.InsertOneAsync(estate);
-
-                return estate;
+                imagePaths.Add("/EstateImages/" + fileName);
             }
-            else
+
+            var estate = new Estate
             {
-                return "Došlo je do greške prilikom traženja korisnika.".ToError();
-            }
+                Title = newEstateDto.Title,
+                Description = newEstateDto.Description,
+                Price = newEstateDto.Price,
+                SquareMeters = newEstateDto.SquareMeters,
+                TotalRooms = newEstateDto.TotalRooms,
+                Category = newEstateDto.Category,
+                FloorNumber = newEstateDto.FloorNumber,
+                Images = imagePaths,
+                Longitude = newEstateDto.Longitude,
+                Latitude = newEstateDto.Latitude,
+                UserId = userId
+            };
+
+            await _estatesCollection.InsertOneAsync(estate);
+
+            return estate;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             return "Došlo je do greške prilikom kreiranja nekretnine.".ToError();
         }
