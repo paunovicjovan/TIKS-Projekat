@@ -391,7 +391,7 @@ public class EstateServiceTests
         const string estateId = "123";
         const string ownerId = "456";
 
-        var estateDTO = new EstateUpdateDTO
+        var estateDto = new EstateUpdateDTO
         {
             Title = "Estate 1",
             Description = "Opis1",
@@ -405,12 +405,12 @@ public class EstateServiceTests
         var updatedEstate = new Estate
         {
             Id = estateId,
-            Title = estateDTO.Title,
-            Description = estateDTO.Description,
-            Price = estateDTO.Price,
-            SquareMeters = estateDTO.SquareMeters,
-            TotalRooms = estateDTO.TotalRooms,
-            Category = estateDTO.Category,
+            Title = estateDto.Title,
+            Description = estateDto.Description,
+            Price = estateDto.Price,
+            SquareMeters = estateDto.SquareMeters,
+            TotalRooms = estateDto.TotalRooms,
+            Category = estateDto.Category,
             Images = ["image1.jpg", "image2.jpg"],
             UserId = ownerId
         };
@@ -458,7 +458,7 @@ public class EstateServiceTests
 
         // Act
         (bool isError, var updatedEstateResult, ErrorMessage? error) =
-            await _estateService.UpdateEstate(estateId, estateDTO);
+            await _estateService.UpdateEstate(estateId, estateDto);
 
         // Assert
         Assert.That(isError, Is.False);
@@ -474,11 +474,11 @@ public class EstateServiceTests
         Assert.That(updatedEstateResult.Images, Is.EqualTo(updatedEstate.Images));
 
         _estatesCollectionMock.Verify(e => e.ReplaceOneAsync(
-            It.IsAny<FilterDefinition<Estate>>(),
-            It.IsAny<Estate>(),
-            It.IsAny<ReplaceOptions>(),
-            It.IsAny<CancellationToken>()),
-        Times.Once);
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<Estate>(),
+                It.IsAny<ReplaceOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Test]
@@ -490,10 +490,9 @@ public class EstateServiceTests
         fileMock.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-
         const string estateId = "123";
 
-        var estateDTO = new EstateUpdateDTO
+        var estateDto = new EstateUpdateDTO
         {
             Title = "Estate 1",
             Description = "Opis1",
@@ -517,7 +516,7 @@ public class EstateServiceTests
 
         // Act
         (bool isError, var updatedEstateResult, ErrorMessage? error) =
-            await _estateService.UpdateEstate(estateId, estateDTO);
+            await _estateService.UpdateEstate(estateId, estateDto);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -537,7 +536,7 @@ public class EstateServiceTests
 
         const string estateId = "123";
 
-        var estateDTO = new EstateUpdateDTO
+        var estateDto = new EstateUpdateDTO
         {
             Title = "Estate 1",
             Description = "Opis1",
@@ -557,13 +556,143 @@ public class EstateServiceTests
 
         // Act
         (bool isError, var updatedEstateResult, ErrorMessage? error) =
-            await _estateService.UpdateEstate(estateId, estateDTO);
+            await _estateService.UpdateEstate(estateId, estateDto);
 
         // Assert
         Assert.That(isError, Is.True);
         Assert.That(updatedEstateResult, Is.Null);
         Assert.That(error, Is.Not.Null);
         Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom ažuriranja nekretnine."));
+    }
+
+    #endregion
+
+    #region RemoveEstate
+
+    [Test]
+    public async Task RemoveEstate_ShouldReturnTrue_WhenEstateExistsAndIsDeleted()
+    {
+        // Arrange
+        const string estateId = "estate123";
+        var estate = new Estate
+        {
+            Id = estateId,
+            Title = "Nekretnina 1",
+            Description = "Nekretnina u centru grada",
+            Price = 150000.00,
+            SquareMeters = 85,
+            TotalRooms = 3,
+            Category = EstateCategory.Flat,
+            FloorNumber = 2,
+            Images = [],
+            Longitude = 20.45689,
+            Latitude = 44.81761,
+            PostIds = ["post1", "post2"],
+            FavoritedByUsersIds = ["user1", "user2"],
+            UserId = "123"
+        };
+
+        _estatesCursorMock
+            .SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+        _estatesCursorMock.SetupGet(x => x.Current).Returns(new List<Estate> { estate });
+
+        _estatesCollectionMock
+            .Setup(x => x.FindAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<FindOptions<Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+
+        _postServiceMock.Setup(x => x.DeletePost(It.IsAny<string>())).ReturnsAsync(true);
+        _userServiceMock.Setup(x => x.RemoveFavoriteEstate(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        _estatesCollectionMock
+            .Setup(x => x.DeleteOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DeleteResult.Acknowledged(1));
+
+        // Act
+        (bool isError, bool result, ErrorMessage? error) = await _estateService.RemoveEstate(estateId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public async Task RemoveEstate_ShouldReturnError_WhenEstateDoesNotExist()
+    {
+        // Arrange
+        const string estateId = "estate123";
+
+        _estatesCursorMock.SetupSequence(c => c.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _estatesCollectionMock
+            .Setup(x => x.FindAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<FindOptions<Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+
+        // Act
+        (bool isError, _, ErrorMessage? error) = await _estateService.RemoveEstate(estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Nije pronađena nekretnina."));
+    }
+
+    [Test]
+    public async Task RemoveEstate_ShouldReturnError_WhenDeleteFails()
+    {
+        // Arrange
+        const string estateId = "estate123";
+        var estate = new Estate
+        {
+            Id = estateId,
+            Title = "Stan",
+            Description = "Nekretnina u centru grada",
+            Price = 150000.00,
+            SquareMeters = 85,
+            TotalRooms = 3,
+            Category = EstateCategory.Flat,
+            FloorNumber = 2,
+            Images = [],
+            Longitude = 20.45689,
+            Latitude = 44.81761,
+            PostIds = ["post1", "post2"],
+            FavoritedByUsersIds = ["user1", "user2"],
+            UserId = "123"
+        };
+        
+        _estatesCursorMock.SetupSequence(c => c.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _estatesCursorMock.SetupGet(c => c.Current)
+            .Returns(new List<Estate> { estate });
+
+        _estatesCollectionMock
+            .Setup(x => x.FindAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<FindOptions<Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+
+        _postServiceMock.Setup(p => p.DeletePost(It.IsAny<string>())).ReturnsAsync(true);
+        _userServiceMock.Setup(u => u.RemoveFavoriteEstate(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
+
+        _estatesCollectionMock
+            .Setup(x => x.DeleteOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Greška prilikom brisanja"));
+
+        // Act
+        (bool isError, bool result, ErrorMessage? error) = await _estateService.RemoveEstate(estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom brisanja nekretnine i povezanih podataka."));
     }
 
     #endregion
