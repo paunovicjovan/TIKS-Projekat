@@ -110,7 +110,6 @@ public class EstateService : IEstateService
         }
     }
 
-
     public async Task<Result<Estate, ErrorMessage>> UpdateEstate(string id, EstateUpdateDTO updatedEstate)
     {
         try
@@ -169,7 +168,6 @@ public class EstateService : IEstateService
             return "Došlo je do greške prilikom ažuriranja nekretnine.".ToError();
         }
     }
-
 
     public async Task<Result<bool, ErrorMessage>> RemoveEstate(string id)
     {

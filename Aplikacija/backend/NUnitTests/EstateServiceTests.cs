@@ -376,4 +376,195 @@ public class EstateServiceTests
     }
 
     #endregion
+
+    #region UpdateEstate
+
+    [Test]
+    public async Task UpdateEstate_ShouldReturnUpdatedEstate_WhenSuccessful()
+    {
+        // Arrange
+        var fileMock = new Mock<IFormFile>();
+        fileMock.Setup(f => f.FileName).Returns("test.jpg");
+        fileMock.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        const string estateId = "123";
+        const string ownerId = "456";
+
+        var estateDTO = new EstateUpdateDTO
+        {
+            Title = "Estate 1",
+            Description = "Opis1",
+            Price = 100000,
+            SquareMeters = 75,
+            TotalRooms = 3,
+            Category = EstateCategory.Flat,
+            Images = [fileMock.Object, fileMock.Object]
+        };
+
+        var updatedEstate = new Estate
+        {
+            Id = estateId,
+            Title = estateDTO.Title,
+            Description = estateDTO.Description,
+            Price = estateDTO.Price,
+            SquareMeters = estateDTO.SquareMeters,
+            TotalRooms = estateDTO.TotalRooms,
+            Category = estateDTO.Category,
+            Images = ["image1.jpg", "image2.jpg"],
+            UserId = ownerId
+        };
+
+        _estatesCollectionMock
+            .Setup(e => e.UpdateOneAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<UpdateDefinition<Estate>>(),
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        _estatesCursorMock
+            .SetupSequence(cursor => cursor.MoveNext(It.IsAny<CancellationToken>()))
+            .Returns(true)
+            .Returns(false);
+
+        _estatesCursorMock
+            .SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _estatesCursorMock
+            .Setup(cursor => cursor.Current)
+            .Returns(new List<Estate>() { updatedEstate });
+
+        _estatesCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+
+        var owner = new UserResultDTO
+        {
+            Id = ownerId,
+            Username = "Marko",
+            Email = "marko@gmail.com",
+            PhoneNumber = "063 1234 567"
+        };
+
+        _userServiceMock
+            .Setup(u => u.GetById(It.IsAny<string>()))
+            .ReturnsAsync(owner);
+
+        // Act
+        (bool isError, var updatedEstateResult, ErrorMessage? error) =
+            await _estateService.UpdateEstate(estateId, estateDTO);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(updatedEstateResult, Is.Not.Null);
+        Assert.That(updatedEstateResult.Id, Is.EqualTo(estateId));
+        Assert.That(updatedEstateResult.UserId, Is.EqualTo(owner.Id));
+        Assert.That(updatedEstateResult.Title, Is.EqualTo(updatedEstate.Title));
+        Assert.That(updatedEstateResult.Description, Is.EqualTo(updatedEstate.Description));
+        Assert.That(updatedEstateResult.Price, Is.EqualTo(updatedEstate.Price));
+        Assert.That(updatedEstateResult.SquareMeters, Is.EqualTo(updatedEstate.SquareMeters));
+        Assert.That(updatedEstateResult.TotalRooms, Is.EqualTo(updatedEstate.TotalRooms));
+        Assert.That(updatedEstateResult.Category, Is.EqualTo(updatedEstate.Category));
+        Assert.That(updatedEstateResult.Images, Is.EqualTo(updatedEstate.Images));
+
+        _estatesCollectionMock.Verify(e => e.ReplaceOneAsync(
+            It.IsAny<FilterDefinition<Estate>>(),
+            It.IsAny<Estate>(),
+            It.IsAny<ReplaceOptions>(),
+            It.IsAny<CancellationToken>()),
+        Times.Once);
+    }
+
+    [Test]
+    public async Task UpdateEstate_ShouldReturnError_WhenEstateNotFound()
+    {
+        // Arrange
+        var fileMock = new Mock<IFormFile>();
+        fileMock.Setup(f => f.FileName).Returns("test.jpg");
+        fileMock.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+
+        const string estateId = "123";
+
+        var estateDTO = new EstateUpdateDTO
+        {
+            Title = "Estate 1",
+            Description = "Opis1",
+            Price = 100000,
+            SquareMeters = 75,
+            TotalRooms = 3,
+            Category = EstateCategory.Flat,
+            Images = [fileMock.Object, fileMock.Object]
+        };
+
+        _estatesCursorMock
+            .SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _estatesCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+
+        // Act
+        (bool isError, var updatedEstateResult, ErrorMessage? error) =
+            await _estateService.UpdateEstate(estateId, estateDTO);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(updatedEstateResult, Is.Null);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.Message, Is.EqualTo("Nije pronađena nekretnina."));
+    }
+
+    [Test]
+    public async Task UpdateEstate_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var fileMock = new Mock<IFormFile>();
+        fileMock.Setup(f => f.FileName).Returns("test.jpg");
+        fileMock.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        const string estateId = "123";
+
+        var estateDTO = new EstateUpdateDTO
+        {
+            Title = "Estate 1",
+            Description = "Opis1",
+            Price = 100000,
+            SquareMeters = 75,
+            TotalRooms = 3,
+            Category = EstateCategory.Flat,
+            Images = [fileMock.Object, fileMock.Object]
+        };
+
+        _estatesCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database failure"));
+
+        // Act
+        (bool isError, var updatedEstateResult, ErrorMessage? error) =
+            await _estateService.UpdateEstate(estateId, estateDTO);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(updatedEstateResult, Is.Null);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom ažuriranja nekretnine."));
+    }
+
+    #endregion
 }
