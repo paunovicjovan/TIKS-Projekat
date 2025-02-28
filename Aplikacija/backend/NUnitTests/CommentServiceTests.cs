@@ -1,4 +1,6 @@
-﻿namespace NUnitTests;
+﻿using DataLayer.DTOs.Pagination;
+
+namespace NUnitTests;
 
 [TestFixture]
 public class CommentServiceTests
@@ -147,12 +149,14 @@ public class CommentServiceTests
     #region GetCommentsForPost
 
     [Test]
-    public async Task GetCommentsForPost_ShouldReturnComments_WhenDataIsValid()
+    [TestCase(0, 2, 2)]
+    [TestCase(1, 2, 2)]
+    [TestCase(2, 2, 1)]
+    [TestCase(3, 2, 0)]
+    public async Task GetCommentsForPost_ShouldReturnCorrectPaginatedComments(int skip, int limit, int expectedCount)
     {
         // Arrange
         const string postId = "123";
-        const int skip = 0;
-        const int limit = 10;
 
         var author = new BsonDocument
         {
@@ -162,30 +166,37 @@ public class CommentServiceTests
             { "PhoneNumber", "062 1212 123" },
             { "Role", (int)UserRole.User }
         };
-        
+
         var mockComments = new List<BsonDocument>
         {
             new BsonDocument
             {
-                { "_id", new ObjectId("5f2a1e730f3f9c3a9e6c8742") }, 
-                { "Content", "Komentar 1" }, 
+                { "_id", new ObjectId("5f2a1e730f3f9c3a9e6c8742") },
+                { "Content", "Komentar 1" },
                 { "CreatedAt", DateTime.Now },
-                { "AuthorData", new BsonArray {author}}
+                { "AuthorData", new BsonArray { author } }
             },
             new BsonDocument
             {
-                { "_id", new ObjectId("60d5f06a5e3a5fbb31798765") }, 
-                { "Content", "Komentar 2" }, 
+                { "_id", new ObjectId("60d5f06a5e3a5fbb31798765") },
+                { "Content", "Komentar 2" },
                 { "CreatedAt", DateTime.Now },
-                { "AuthorData", new BsonArray {author}}
+                { "AuthorData", new BsonArray { author } }
+            },
+            new BsonDocument
+            {
+                { "_id", new ObjectId("60d5f06a5e3a5fbb31798766") },
+                { "Content", "Komentar 3" },
+                { "CreatedAt", DateTime.Now },
+                { "AuthorData", new BsonArray { author } }
             }
         };
 
-        var totalCount = 2;
+        var totalCount = mockComments.Count;
 
         _commentAggregationRepositoryMock.Setup(repo =>
                 repo.GetCommentsForPost(It.IsAny<IMongoCollection<Comment>>(), postId, skip, limit))
-            .ReturnsAsync(mockComments);
+            .ReturnsAsync(mockComments.Skip(skip).Take(limit).ToList());
 
         _commentsCollectionMock
             .Setup(c => c.CountDocumentsAsync(It.IsAny<FilterDefinition<Comment>>(), It.IsAny<CountOptions>(),
@@ -200,8 +211,53 @@ public class CommentServiceTests
         Assert.That(isError, Is.False);
         Assert.That(paginatedComments, Is.Not.Null);
         Assert.That(paginatedComments.Data, Is.Not.Null);
-        Assert.That(paginatedComments.Data.Count, Is.EqualTo(mockComments.Count));
+        Assert.That(paginatedComments.Data.Count, Is.EqualTo(expectedCount));
         Assert.That(paginatedComments.TotalLength, Is.EqualTo(totalCount));
+    }
+
+    [Test]
+    public async Task GetCommentsForPost_ShouldReturnEmptyList_WhenNoCommentsExist()
+    {
+        // Arrange
+        string postId = "123";
+        _commentAggregationRepositoryMock
+            .Setup(repo =>
+                repo.GetCommentsForPost(_commentsCollectionMock.Object, postId, It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync([]);
+
+        _commentsCollectionMock
+            .Setup(col => col.CountDocumentsAsync(It.IsAny<FilterDefinition<Comment>>(), null, default))
+            .ReturnsAsync(0);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _commentService.GetCommentsForPost(postId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Data, Is.Empty);
+        Assert.That(result.TotalLength, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task GetCommentsForPost_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        string postId = "123";
+        _commentAggregationRepositoryMock
+            .Setup(repo =>
+                repo.GetCommentsForPost(_commentsCollectionMock.Object, postId, It.IsAny<int>(), It.IsAny<int>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _commentService.GetCommentsForPost(postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(result, Is.Null);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja komentara."));
     }
 
     #endregion
@@ -420,7 +476,7 @@ public class CommentServiceTests
                 It.IsAny<FindOptions<Comment, Comment>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Mock.Of<IAsyncCursor<Comment>>());
-        
+
         // Act
         (bool isError, var _, ErrorMessage? error) = await _commentService.DeleteComment(nonExistingCommentId);
 

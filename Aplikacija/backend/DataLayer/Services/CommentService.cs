@@ -79,7 +79,7 @@ public class CommentService : ICommentService
                 TotalLength = totalCount
             };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return "Došlo je do greške prilikom preuzimanja komentara.".ToError();
         }
