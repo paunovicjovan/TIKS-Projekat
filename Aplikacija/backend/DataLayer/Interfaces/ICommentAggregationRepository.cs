@@ -2,5 +2,5 @@
 
 public interface ICommentAggregationRepository
 {
-    public Task<List<BsonDocument>> GetCommentsForPost(IMongoCollection<Comment> collection, string postId, int skip, int limit);
+    public Task<List<BsonDocument>> GetCommentsForPost(string postId, int skip, int limit);
 }

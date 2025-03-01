@@ -5,12 +5,15 @@ public class PostService : IPostService
     private readonly IMongoCollection<Post> _postsCollection;
     private readonly IUserService _userService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IPostAggregationRepository _postAggregationRepository;
 
-    public PostService(IMongoCollection<Post> postsCollection, IUserService userService, IServiceProvider serviceProvider)
+    public PostService(IMongoCollection<Post> postsCollection, IUserService userService,
+        IServiceProvider serviceProvider, IPostAggregationRepository postAggregationRepository)
     {
         _postsCollection = postsCollection;
         _userService = userService;
         _serviceProvider = serviceProvider;
+        _postAggregationRepository = postAggregationRepository;
     }
 
     public async Task<Result<PostResultDTO, ErrorMessage>> CreatePost(CreatePostDTO postDto, string userId)
@@ -20,7 +23,7 @@ public class PostService : IPostService
             var userResult = await _userService.GetById(userId);
             if (userResult.IsError)
                 return userResult.Error;
-            
+
             var newPost = new Post
             {
                 Title = postDto.Title,
@@ -75,16 +78,7 @@ public class PostService : IPostService
     {
         try
         {
-            var posts = await _postsCollection.Aggregate()
-                .Match(post => post.Title.ToLower().Contains((title.ToLower())))
-                .Sort(Builders<Post>.Sort.Descending(p => p.CreatedAt))
-                .Skip((page - 1) * pageSize)
-                .Limit(pageSize)
-                .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
-                .Lookup("estates_collection", "EstateId", "_id", "EstateData")
-                .As<BsonDocument>()
-                .ToListAsync();
-
+            var posts = await _postAggregationRepository.GetAllPosts(title, page, pageSize);
 
             var postsDtos = posts.Select(post => new PostResultDTO(post)).ToList();
 
@@ -97,7 +91,7 @@ public class PostService : IPostService
                 TotalLength = totalCount
             };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             return "Došlo je do greške prilikom preuzimanja objava.".ToError();
         }
@@ -283,7 +277,8 @@ public class PostService : IPostService
         }
     }
 
-    public async Task<Result<PaginatedResponseDTO<PostResultDTO>, ErrorMessage>> GetUserPosts(string userId, int page = 1, int pageSize = 10)
+    public async Task<Result<PaginatedResponseDTO<PostResultDTO>, ErrorMessage>> GetUserPosts(string userId,
+        int page = 1, int pageSize = 10)
     {
         try
         {

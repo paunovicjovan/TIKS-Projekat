@@ -153,7 +153,8 @@ public class CommentServiceTests
     [TestCase(1, 2, 2)]
     [TestCase(2, 2, 1)]
     [TestCase(3, 2, 0)]
-    public async Task GetCommentsForPost_ShouldReturnCorrectPaginatedComments(int skip, int limit, int expectedCount)
+    public async Task GetCommentsForPost_ShouldReturnCorrectPaginatedComments_WhenParamsAreValid(int skip, int limit,
+        int expectedCount)
     {
         // Arrange
         const string postId = "123";
@@ -195,7 +196,7 @@ public class CommentServiceTests
         var totalCount = mockComments.Count;
 
         _commentAggregationRepositoryMock.Setup(repo =>
-                repo.GetCommentsForPost(It.IsAny<IMongoCollection<Comment>>(), postId, skip, limit))
+                repo.GetCommentsForPost(postId, skip, limit))
             .ReturnsAsync(mockComments.Skip(skip).Take(limit).ToList());
 
         _commentsCollectionMock
@@ -222,7 +223,7 @@ public class CommentServiceTests
         string postId = "123";
         _commentAggregationRepositoryMock
             .Setup(repo =>
-                repo.GetCommentsForPost(_commentsCollectionMock.Object, postId, It.IsAny<int>(), It.IsAny<int>()))
+                repo.GetCommentsForPost(postId, It.IsAny<int>(), It.IsAny<int>()))
             .ReturnsAsync([]);
 
         _commentsCollectionMock
@@ -246,7 +247,7 @@ public class CommentServiceTests
         string postId = "123";
         _commentAggregationRepositoryMock
             .Setup(repo =>
-                repo.GetCommentsForPost(_commentsCollectionMock.Object, postId, It.IsAny<int>(), It.IsAny<int>()))
+                repo.GetCommentsForPost(postId, It.IsAny<int>(), It.IsAny<int>()))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act

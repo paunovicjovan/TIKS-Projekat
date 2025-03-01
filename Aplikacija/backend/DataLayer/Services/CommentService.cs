@@ -67,7 +67,7 @@ public class CommentService : ICommentService
     {
         try
         {
-            var comments = await _commentAggregationRepository.GetCommentsForPost(_commentsCollection, postId, skip, limit);
+            var comments = await _commentAggregationRepository.GetCommentsForPost(postId, skip, limit);
 
             var commentsDtos = comments.Select(comment => new CommentResultDTO(comment)).ToList();
 

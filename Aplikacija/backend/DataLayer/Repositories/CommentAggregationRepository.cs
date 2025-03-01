@@ -2,10 +2,17 @@
 
 public class CommentAggregationRepository : ICommentAggregationRepository
 {
-    public async Task<List<BsonDocument>> GetCommentsForPost(IMongoCollection<Comment> collection, string postId,
+    private readonly IMongoCollection<Comment> _commentsCollection;
+
+    public CommentAggregationRepository(IMongoCollection<Comment> commentsCollection)
+    {
+        _commentsCollection = commentsCollection;
+    }
+    
+    public async Task<List<BsonDocument>> GetCommentsForPost(string postId,
         int skip, int limit)
     {
-        return await collection.Aggregate()
+        return await _commentsCollection.Aggregate()
             .Match(comment => comment.PostId == postId)
             .Sort(Builders<Comment>.Sort.Descending(p => p.CreatedAt))
             .Skip(skip)

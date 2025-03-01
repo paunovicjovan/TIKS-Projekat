@@ -14,6 +14,7 @@ public class PostServiceTests
     private Mock<IEstateService> _estateServiceMock;
     private Mock<ICommentService> _commentServiceMock;
     private Mock<IServiceProvider> _serviceProviderMock;
+    private Mock<IPostAggregationRepository> _postAggregationRepositoryMock;
     private PostService _postService;
 
     [SetUp]
@@ -25,10 +26,12 @@ public class PostServiceTests
         _estateServiceMock = new Mock<IEstateService>();
         _commentServiceMock = new Mock<ICommentService>();
         _serviceProviderMock = new Mock<IServiceProvider>();
+        _postAggregationRepositoryMock = new Mock<IPostAggregationRepository>();
         _postService = new PostService(
             _postsCollectionMock.Object,
             _userServiceMock.Object,
-            _serviceProviderMock.Object
+            _serviceProviderMock.Object,
+            _postAggregationRepositoryMock.Object
         );
     }
 
@@ -197,113 +200,106 @@ public class PostServiceTests
 
     #region GetAllPosts
 
-    //TODO: testovi za GetAllPosts
+    [Test]
+    [TestCase(1, 2, 2, 5)]
+    [TestCase(2, 2, 2, 5)]
+    [TestCase(3, 2, 1, 5)]
+    [TestCase(4, 2, 0, 5)]
+    public async Task GetAllPosts_ShouldReturnCorrectPaginatedPosts_WhenParamsAreValid(int page, int pageSize,
+        int expectedCount, int totalPostsCount)
+    {
+        // Arrange
+        var mockPosts = new List<BsonDocument>();
+        for (int i = 0; i < totalPostsCount; i++)
+        {
+            mockPosts.Add(new BsonDocument
+            {
+                { "_id", ObjectId.GenerateNewId() },
+                { "Title", $"Post {i + 1}" },
+                { "Content", $"Content {i + 1}" },
+                { "CreatedAt", DateTime.UtcNow },
+                {
+                    "AuthorData",
+                    new BsonArray
+                    {
+                        new BsonDocument
+                        {
+                            { "_id", ObjectId.GenerateNewId() }, 
+                            { "Username", $"User{i + 1}" },
+                            { "Email", $"user{i + 1}@example.com" },
+                            { "PhoneNumber", $"broj {i}" },
+                            { "Role", UserRole.Admin }
+                        }
+                    }
+                }
+            });
+        }
+
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetAllPosts(It.IsAny<string>(), page, pageSize))
+            .ReturnsAsync(mockPosts.Skip((page-1)*pageSize).Take(pageSize).ToList());
+
+        _postsCollectionMock
+            .Setup(col => col.CountDocumentsAsync(It.IsAny<FilterDefinition<Post>>(), null, default))
+            .ReturnsAsync(totalPostsCount);
+
+        // Act
+        (bool isError, var paginatedPosts, ErrorMessage? error) = await _postService.GetAllPosts("", page, pageSize);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(paginatedPosts, Is.Not.Null);
+        Assert.That(paginatedPosts.Data, Is.Not.Null);
+        Assert.That(paginatedPosts.Data.Count, Is.EqualTo(expectedCount));
+        Assert.That(paginatedPosts.TotalLength, Is.EqualTo(totalPostsCount));
+    }
+    
+    [Test]
+    public async Task GetAllPosts_ShouldReturnEmptyList_WhenNoPostsExist()
+    {
+        // Arrange
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetAllPosts(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync([]);
+
+        _postsCollectionMock
+            .Setup(col => col.CountDocumentsAsync(It.IsAny<FilterDefinition<Post>>(), null, default))
+            .ReturnsAsync(0);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.GetAllPosts();
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Data, Is.Empty);
+        Assert.That(result.TotalLength, Is.EqualTo(0));
+    }
+    
+    [Test]
+    public async Task GetAllPosts_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetAllPosts(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.GetAllPosts();
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(result, Is.Null);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja objava."));
+    }
 
     #endregion
 
     #region GetPostById
 
     //TODO: testovi za GetPostById
-
-    [Test]
-    [Ignore("Nece")]
-    public async Task GetPostById_ShouldReturnPost_WhenPostExists()
-    {
-        // Arrange
-        var postId = ObjectId.GenerateNewId();
-        var authorId = ObjectId.GenerateNewId();
-        var estateId = ObjectId.GenerateNewId();
-
-        var authorDoc = new BsonDocument
-        {
-            { "_id", authorId },
-            { "Username", "testuser" },
-            { "Email", "testuser@example.com" },
-            { "PhoneNumber", "123456789" },
-            { "Role", (int)UserRole.User }
-        };
-
-        var postBson = new BsonDocument
-        {
-            { "_id", postId },
-            { "Title", "Test Post" },
-            { "Content", "This is a test post." },
-            { "CreatedAt", DateTime.UtcNow },
-            { "AuthorData", new BsonArray { authorDoc } }
-        };
-
-        var aggregateFluentMockDocument = new Mock<IAggregateFluent<BsonDocument>>();
-        var aggregateFluentMockPost = new Mock<IAggregateFluent<Post>>();
-
-        _postsCollectionMock.SetupGet(c => c.DocumentSerializer)
-            .Returns(BsonSerializer.LookupSerializer<Post>());
-
-        aggregateFluentMockPost.Setup(a => a.Match(It.IsAny<FilterDefinition<Post>>()))
-            .Returns(aggregateFluentMockPost.Object);
-
-        // Kreiramo mock za IMongoDatabase
-        var databaseMock = new Mock<IMongoDatabase>();
-
-        // Kreiramo mock za IMongoCollection<BsonDocument>
-        var foreignCollectionMock = new Mock<IMongoCollection<BsonDocument>>();
-
-        // Postavljamo da databaseMock vraća foreignCollectionMock kada se pozove GetCollection<BsonDocument>
-        databaseMock
-            .Setup(db => db.GetCollection<BsonDocument>(It.IsAny<string>(), null))
-            .Returns(foreignCollectionMock.Object);
-
-        // Mockujemo Database properti na aggregateFluentMockDocument
-        aggregateFluentMockPost
-            .SetupGet(a => a.Database)
-            .Returns(databaseMock.Object);
-
-        aggregateFluentMockDocument
-            .SetupGet(a => a.Database)
-            .Returns(databaseMock.Object);
-
-        // aggregateFluentMockPost.Setup(a => a.Lookup(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-        //     .Returns(aggregateFluentMockDocument.Object);
-        // aggregateFluentMockDocument.Setup(a => a.Lookup(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-        //     .Returns(aggregateFluentMockDocument.Object);
-        aggregateFluentMockPost
-            .Setup(a => a.AppendStage(It.IsAny<PipelineStageDefinition<Post, BsonDocument>>()))
-            .Returns(aggregateFluentMockDocument.Object);
-        aggregateFluentMockDocument
-            .Setup(a => a.AppendStage(It.IsAny<PipelineStageDefinition<BsonDocument, BsonDocument>>()))
-            .Returns(aggregateFluentMockDocument.Object);
-        aggregateFluentMockDocument.Setup(a => a.As<BsonDocument>(null))
-            .Returns(aggregateFluentMockDocument.Object);
-
-        var asyncCursorMock = new Mock<IAsyncCursor<BsonDocument>>();
-        asyncCursorMock
-            .SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true)  // Prvi put vraća true (postoji podatak)
-            .ReturnsAsync(false); // Drugi put vraća false (nema više podataka)
-
-        asyncCursorMock
-            .SetupGet(x => x.Current)
-            .Returns(new List<BsonDocument> { postBson }); // Vraća listu sa jednim dokumentom
-
-        // Mock za IAggregateFluent<BsonDocument>
-        aggregateFluentMockDocument
-            .Setup(a => a.ToCursorAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(asyncCursorMock.Object);
-
-        // aggregateFluentMockDocument.Setup(a => a.FirstOrDefaultAsync(default))
-        //     .ReturnsAsync(postBson);
-
-        // Act
-        (bool isError, var post, ErrorMessage? error) = await _postService.GetPostById(postId.ToString());
-
-        // Assert
-        Assert.That(isError, Is.False);
-        Assert.That(post, Is.Not.Null);
-        Assert.That(post.Title, Is.EqualTo("Test Post"));
-        Assert.That(post.Author, Is.Not.Null);
-        Assert.That(post.Author.Username, Is.EqualTo("testuser"));
-        Assert.That(post.Estate, Is.Null);
-    }
-
 
     #endregion
 
@@ -640,10 +636,10 @@ public class PostServiceTests
         Assert.That(result, Is.True);
 
         _postsCollectionMock.Verify(collection =>
-            collection.UpdateOneAsync(
-                It.IsAny<FilterDefinition<Post>>(),
-                It.IsAny<UpdateDefinition<Post>>(),
-                null, It.IsAny<CancellationToken>()),
+                collection.UpdateOneAsync(
+                    It.IsAny<FilterDefinition<Post>>(),
+                    It.IsAny<UpdateDefinition<Post>>(),
+                    null, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -674,10 +670,10 @@ public class PostServiceTests
         Assert.That(error.Message, Is.EqualTo("Objava nije pronađena ili nije ažurirana."));
 
         _postsCollectionMock.Verify(collection =>
-            collection.UpdateOneAsync(
-                It.IsAny<FilterDefinition<Post>>(),
-                It.IsAny<UpdateDefinition<Post>>(),
-                null, It.IsAny<CancellationToken>()),
+                collection.UpdateOneAsync(
+                    It.IsAny<FilterDefinition<Post>>(),
+                    It.IsAny<UpdateDefinition<Post>>(),
+                    null, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -708,10 +704,10 @@ public class PostServiceTests
         Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom dodavanja komentara objavi."));
 
         _postsCollectionMock.Verify(collection =>
-            collection.UpdateOneAsync(
-                It.IsAny<FilterDefinition<Post>>(),
-                It.IsAny<UpdateDefinition<Post>>(),
-                null, It.IsAny<CancellationToken>()),
+                collection.UpdateOneAsync(
+                    It.IsAny<FilterDefinition<Post>>(),
+                    It.IsAny<UpdateDefinition<Post>>(),
+                    null, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -745,10 +741,10 @@ public class PostServiceTests
         Assert.That(result, Is.True);
 
         _postsCollectionMock.Verify(collection =>
-            collection.UpdateOneAsync(
-                It.IsAny<FilterDefinition<Post>>(),
-                It.IsAny<UpdateDefinition<Post>>(),
-                null, It.IsAny<CancellationToken>()),
+                collection.UpdateOneAsync(
+                    It.IsAny<FilterDefinition<Post>>(),
+                    It.IsAny<UpdateDefinition<Post>>(),
+                    null, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -779,10 +775,10 @@ public class PostServiceTests
         Assert.That(error.Message, Is.EqualTo("Komentar nije pronađen na objavi."));
 
         _postsCollectionMock.Verify(collection =>
-            collection.UpdateOneAsync(
-                It.IsAny<FilterDefinition<Post>>(),
-                It.IsAny<UpdateDefinition<Post>>(),
-                null, It.IsAny<CancellationToken>()),
+                collection.UpdateOneAsync(
+                    It.IsAny<FilterDefinition<Post>>(),
+                    It.IsAny<UpdateDefinition<Post>>(),
+                    null, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -813,10 +809,10 @@ public class PostServiceTests
         Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom uklanjanja komentara sa objave."));
 
         _postsCollectionMock.Verify(collection =>
-            collection.UpdateOneAsync(
-                It.IsAny<FilterDefinition<Post>>(),
-                It.IsAny<UpdateDefinition<Post>>(),
-                null, It.IsAny<CancellationToken>()),
+                collection.UpdateOneAsync(
+                    It.IsAny<FilterDefinition<Post>>(),
+                    It.IsAny<UpdateDefinition<Post>>(),
+                    null, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

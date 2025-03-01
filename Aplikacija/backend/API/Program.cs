@@ -23,6 +23,7 @@ builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IEstateService, EstateService>();
 builder.Services.AddScoped<ICommentAggregationRepository, CommentAggregationRepository>();
+builder.Services.AddScoped<IPostAggregationRepository, PostAggregationRepository>();
 
 builder.Services.AddControllers().AddJsonOptions(opt =>
 {
