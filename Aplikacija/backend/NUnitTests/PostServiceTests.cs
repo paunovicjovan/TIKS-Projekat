@@ -224,7 +224,7 @@ public class PostServiceTests
                     {
                         new BsonDocument
                         {
-                            { "_id", ObjectId.GenerateNewId() }, 
+                            { "_id", ObjectId.GenerateNewId() },
                             { "Username", $"User{i + 1}" },
                             { "Email", $"user{i + 1}@example.com" },
                             { "PhoneNumber", $"broj {i}" },
@@ -237,7 +237,7 @@ public class PostServiceTests
 
         _postAggregationRepositoryMock
             .Setup(repo => repo.GetAllPosts(It.IsAny<string>(), page, pageSize))
-            .ReturnsAsync(mockPosts.Skip((page-1)*pageSize).Take(pageSize).ToList());
+            .ReturnsAsync(mockPosts.Skip((page - 1) * pageSize).Take(pageSize).ToList());
 
         _postsCollectionMock
             .Setup(col => col.CountDocumentsAsync(It.IsAny<FilterDefinition<Post>>(), null, default))
@@ -253,7 +253,7 @@ public class PostServiceTests
         Assert.That(paginatedPosts.Data.Count, Is.EqualTo(expectedCount));
         Assert.That(paginatedPosts.TotalLength, Is.EqualTo(totalPostsCount));
     }
-    
+
     [Test]
     public async Task GetAllPosts_ShouldReturnEmptyList_WhenNoPostsExist()
     {
@@ -275,7 +275,7 @@ public class PostServiceTests
         Assert.That(result.Data, Is.Empty);
         Assert.That(result.TotalLength, Is.EqualTo(0));
     }
-    
+
     [Test]
     public async Task GetAllPosts_ShouldReturnError_WhenExceptionOccurs()
     {
@@ -299,7 +299,81 @@ public class PostServiceTests
 
     #region GetPostById
 
-    //TODO: testovi za GetPostById
+    [Test]
+    public async Task GetPostById_ShouldReturnPost_WhenPostExists()
+    {
+        // Arrange
+        var postId = ObjectId.GenerateNewId().ToString();
+        var post = new BsonDocument
+        {
+            { "_id", new ObjectId(postId) },
+            { "Title", "Naslov" },
+            { "Content", "Sadrzaj" },
+            { "CreatedAt", DateTime.UtcNow },
+            {
+                "AuthorData", new BsonArray
+                {
+                    new BsonDocument
+                    {
+                        { "_id", new ObjectId() },
+                        { "Username", "author123" },
+                        { "Email", "author@example.com" },
+                        { "PhoneNumber", "1234567890" },
+                        { "Role", 1 }
+                    }
+                }
+            },
+        };
+
+        _postAggregationRepositoryMock.Setup(repo => repo.GetPostById(postId)).ReturnsAsync(post);
+
+        // Act
+        (bool isError, var postDto, ErrorMessage? error) = await _postService.GetPostById(postId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(postDto, Is.Not.Null & Is.InstanceOf<PostResultDTO>());
+        Assert.That(postDto.Title, Is.EqualTo(post["Title"].AsString));
+        Assert.That(postDto.Content, Is.EqualTo(post["Content"].AsString));
+        Assert.That(postDto.Author.Username, Is.EqualTo(post["AuthorData"].AsBsonArray.First()["Username"].AsString));
+    }
+
+    [Test]
+    public async Task GetPostById_ShouldReturnError_WhenPostDoesNotExist()
+    {
+        // Arrange
+        var postId = ObjectId.GenerateNewId().ToString();
+        _postAggregationRepositoryMock.Setup(repo => repo.GetPostById(postId))
+            .ReturnsAsync((BsonDocument?)null);
+
+        // Act
+        (bool isError, var postDto, ErrorMessage? error) = await _postService.GetPostById(postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(404));
+        Assert.That(error.Message, Is.EqualTo("Post nije pronađen."));
+    }
+    
+    [Test]
+    public async Task GetPostById_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var postId = ObjectId.GenerateNewId().ToString();
+        _postAggregationRepositoryMock.Setup(repo => repo.GetPostById(postId))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        (bool isError, var postDto, ErrorMessage? error) = await _postService.GetPostById(postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja objave."));
+    }
+
 
     #endregion
 

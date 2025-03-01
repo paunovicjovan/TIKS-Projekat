@@ -22,4 +22,14 @@ public class PostAggregationRepository : IPostAggregationRepository
             .As<BsonDocument>()
             .ToListAsync();
     }
+
+    public async Task<BsonDocument?> GetPostById(string id)
+    {
+        return await _postsCollection.Aggregate()
+            .Match(Builders<Post>.Filter.Eq("_id", ObjectId.Parse(id)))
+            .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
+            .Lookup("estates_collection", "EstateId", "_id", "EstateData")
+            .As<BsonDocument>()
+            .FirstOrDefaultAsync();
+    }
 }
