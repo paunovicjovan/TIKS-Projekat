@@ -32,4 +32,29 @@ public class PostAggregationRepository : IPostAggregationRepository
             .As<BsonDocument>()
             .FirstOrDefaultAsync();
     }
+    
+    public async Task<List<BsonDocument>> GetAllPostsForEstate(string estateId, int page = 1, int pageSize = 10)
+    {
+        return await _postsCollection.Aggregate()
+            .Match(post => post.EstateId == estateId)
+            .Sort(Builders<Post>.Sort.Descending(p => p.CreatedAt))
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
+            .As<BsonDocument>()
+            .ToListAsync();
+    }
+
+    public async Task<List<BsonDocument>> GetUserPosts(string userId, int page = 1, int pageSize = 10)
+    {
+        return await _postsCollection.Aggregate()
+            .Match(p => p.AuthorId == userId)
+            .SortByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
+            .Lookup("estates_collection", "EstateId", "_id", "EstateData")
+            .As<BsonDocument>()
+            .ToListAsync();
+    }
 }

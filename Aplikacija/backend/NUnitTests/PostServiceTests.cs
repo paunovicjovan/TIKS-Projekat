@@ -378,7 +378,127 @@ public class PostServiceTests
 
     #region GetAllPostsForEstate
 
-    //TODO: testovi za GetAllPostsForEstate
+    [Test]
+    [TestCase(1, 2, 2, 5)]
+    [TestCase(2, 2, 2, 5)]
+    [TestCase(3, 2, 1, 5)]
+    [TestCase(4, 2, 0, 5)]
+    public async Task GetAllPostsForEstate_ShouldReturnCorrectPaginatedPosts_WhenParamsAreValid(int page, int pageSize,
+        int expectedCount, int totalPostsCount)
+    {
+        // Arrange
+        var mockPosts = new List<BsonDocument>();
+        for (int i = 0; i < totalPostsCount; i++)
+        {
+            mockPosts.Add(new BsonDocument
+            {
+                { "_id", ObjectId.GenerateNewId() },
+                { "Title", $"Post {i + 1}" },
+                { "Content", $"Content {i + 1}" },
+                { "CreatedAt", DateTime.UtcNow },
+                {
+                    "AuthorData",
+                    new BsonArray
+                    {
+                        new BsonDocument
+                        {
+                            { "_id", ObjectId.GenerateNewId() },
+                            { "Username", $"User{i + 1}" },
+                            { "Email", $"user{i + 1}@example.com" },
+                            { "PhoneNumber", $"broj {i}" },
+                            { "Role", UserRole.Admin }
+                        }
+                    }
+                },
+                {
+                    "EstateData",
+                    new BsonArray
+                    {
+                        new BsonDocument
+                        {
+                            { "_id", ObjectId.GenerateNewId() },
+                            { "Title", "Apartman" },
+                            { "Description", "Apartman u centru grada." },
+                            { "Price", 250000.0 },
+                            { "SquareMeters", 85 },
+                            { "TotalRooms", 3 },
+                            { "Category", EstateCategory.Flat },
+                            { "FloorNumber", 5 },
+                            { "Images", new BsonArray { "image1.jpg", "image2.jpg" } },
+                            { "Longitude", 19.8335 },
+                            { "Latitude", 45.2671 },
+                            { "UserId", ObjectId.GenerateNewId() }
+                        }
+                    }
+                }
+            });
+        }
+
+        const string estateId = "123"; 
+            
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetAllPostsForEstate(estateId, page, pageSize))
+            .ReturnsAsync(mockPosts.Skip((page - 1) * pageSize).Take(pageSize).ToList());
+
+        _postsCollectionMock
+            .Setup(col => col.CountDocumentsAsync(It.IsAny<FilterDefinition<Post>>(), null, default))
+            .ReturnsAsync(totalPostsCount);
+
+        // Act
+        (bool isError, var paginatedPosts, ErrorMessage? error) = await _postService.GetAllPostsForEstate(estateId, page, pageSize);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(paginatedPosts, Is.Not.Null);
+        Assert.That(paginatedPosts.Data, Is.Not.Null);
+        Assert.That(paginatedPosts.Data.Count, Is.EqualTo(expectedCount));
+        Assert.That(paginatedPosts.TotalLength, Is.EqualTo(totalPostsCount));
+    }
+
+    [Test]
+    public async Task GetAllPostsForEstate_ShouldReturnEmptyList_WhenNoPostsExist()
+    {
+        // Arrange
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetAllPostsForEstate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync([]);
+    
+        _postsCollectionMock
+            .Setup(col => col.CountDocumentsAsync(It.IsAny<FilterDefinition<Post>>(), null, default))
+            .ReturnsAsync(0);
+
+        const string estateId = "123";
+        
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.GetAllPostsForEstate(estateId);
+    
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Data, Is.Empty);
+        Assert.That(result.TotalLength, Is.EqualTo(0));
+    }
+    
+    [Test]
+    public async Task GetAllPostsForEstate_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetAllPostsForEstate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        const string estateId = "123";
+    
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.GetAllPostsForEstate(estateId);
+    
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(result, Is.Null);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja objava."));
+    }
 
     #endregion
 
@@ -893,7 +1013,106 @@ public class PostServiceTests
 
     #region GetUserPosts
 
-    //TODO: testovi za GetUserPosts
+      [Test]
+    [TestCase(1, 2, 2, 5)]
+    [TestCase(2, 2, 2, 5)]
+    [TestCase(3, 2, 1, 5)]
+    [TestCase(4, 2, 0, 5)]
+    public async Task GetUserPosts_ShouldReturnCorrectPaginatedPosts_WhenParamsAreValid(int page, int pageSize,
+        int expectedCount, int totalPostsCount)
+    {
+        // Arrange
+        var mockPosts = new List<BsonDocument>();
+        for (int i = 0; i < totalPostsCount; i++)
+        {
+            mockPosts.Add(new BsonDocument
+            {
+                { "_id", ObjectId.GenerateNewId() },
+                { "Title", $"Post {i + 1}" },
+                { "Content", $"Content {i + 1}" },
+                { "CreatedAt", DateTime.UtcNow },
+                {
+                    "AuthorData",
+                    new BsonArray
+                    {
+                        new BsonDocument
+                        {
+                            { "_id", ObjectId.GenerateNewId() },
+                            { "Username", $"User{i + 1}" },
+                            { "Email", $"user{i + 1}@example.com" },
+                            { "PhoneNumber", $"broj {i}" },
+                            { "Role", UserRole.Admin }
+                        }
+                    }
+                }
+            });
+        }
+        
+        const string userId = "123";
+
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetUserPosts(userId, page, pageSize))
+            .ReturnsAsync(mockPosts.Skip((page - 1) * pageSize).Take(pageSize).ToList());
+
+        _postsCollectionMock
+            .Setup(col => col.CountDocumentsAsync(It.IsAny<FilterDefinition<Post>>(), null, default))
+            .ReturnsAsync(totalPostsCount);
+        
+        // Act
+        (bool isError, var paginatedPosts, ErrorMessage? error) = await _postService.GetUserPosts(userId, page, pageSize);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(paginatedPosts, Is.Not.Null);
+        Assert.That(paginatedPosts.Data, Is.Not.Null);
+        Assert.That(paginatedPosts.Data.Count, Is.EqualTo(expectedCount));
+        Assert.That(paginatedPosts.TotalLength, Is.EqualTo(totalPostsCount));
+    }
+
+    [Test]
+    public async Task GetUserPosts_ShouldReturnEmptyList_WhenNoPostsExist()
+    {
+        // Arrange
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetUserPosts(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync([]);
+    
+        _postsCollectionMock
+            .Setup(col => col.CountDocumentsAsync(It.IsAny<FilterDefinition<Post>>(), null, default))
+            .ReturnsAsync(0);
+
+        const string userId = "123";
+    
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.GetUserPosts(userId);
+    
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Data, Is.Empty);
+        Assert.That(result.TotalLength, Is.EqualTo(0));
+    }
+    
+    [Test]
+    public async Task GetUserPosts_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        _postAggregationRepositoryMock
+            .Setup(repo => repo.GetUserPosts(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        const string userId = "123";
+        
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _postService.GetUserPosts(userId);
+    
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(result, Is.Null);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja objava."));
+    }
 
     #endregion
 }

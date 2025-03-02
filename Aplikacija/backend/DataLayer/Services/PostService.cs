@@ -121,14 +121,7 @@ public class PostService : IPostService
     {
         try
         {
-            var posts = await _postsCollection.Aggregate()
-                .Match(post => post.EstateId == estateId)
-                .Sort(Builders<Post>.Sort.Descending(p => p.CreatedAt))
-                .Skip((page - 1) * pageSize)
-                .Limit(pageSize)
-                .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
-                .As<BsonDocument>()
-                .ToListAsync();
+            var posts = await _postAggregationRepository.GetAllPostsForEstate(estateId, page, pageSize);
 
             var postsDtos = posts.Select(post => new PostResultDTO(post)).ToList();
 
@@ -269,15 +262,7 @@ public class PostService : IPostService
     {
         try
         {
-            var posts = await _postsCollection.Aggregate()
-                .Match(p => p.AuthorId == userId)
-                .SortByDescending(p => p.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Limit(pageSize)
-                .Lookup("users_collection", "AuthorId", "_id", "AuthorData")
-                .Lookup("estates_collection", "EstateId", "_id", "EstateData")
-                .As<BsonDocument>()
-                .ToListAsync();
+            var posts = await _postAggregationRepository.GetUserPosts(userId, page, pageSize);
 
             var postDtos = posts.Select(post => new PostResultDTO(post)).ToList();
 
