@@ -374,7 +374,6 @@ public class PostServiceTests
         Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja objave."));
     }
 
-
     #endregion
 
     #region GetAllPostsForEstate

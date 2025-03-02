@@ -91,7 +91,7 @@ public class PostService : IPostService
                 TotalLength = totalCount
             };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return "Došlo je do greške prilikom preuzimanja objava.".ToError();
         }

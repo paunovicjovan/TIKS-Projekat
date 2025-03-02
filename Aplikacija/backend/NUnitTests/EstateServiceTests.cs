@@ -665,7 +665,7 @@ public class EstateServiceTests
             FavoritedByUsersIds = ["user1", "user2"],
             UserId = "123"
         };
-        
+
         _estatesCursorMock.SetupSequence(c => c.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true)
             .ReturnsAsync(false);
@@ -694,6 +694,142 @@ public class EstateServiceTests
         Assert.That(error.StatusCode, Is.EqualTo(400));
         Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom brisanja nekretnine i povezanih podataka."));
     }
+
+    #endregion
+
+    #region GetEstatesCreatedByUser
+
+    [Test]
+    [TestCase(1, 2, 2, 6)]
+    [TestCase(2, 2, 2, 6)]
+    [TestCase(3, 2, 2, 6)]
+    [TestCase(4, 2, 0, 6)]
+    public async Task GetEstatesCreatedByUser_ShouldReturnCorrectPaginatedEstates_WhenParamsAreValid(
+        int page, int pageSize, int expectedCount, int totalEstatesCount)
+    {
+        // Arrange
+        var userId = "123";
+        var mockEstates = new List<Estate>();
+
+        for (int i = 0; i < totalEstatesCount; i += 2)
+        {
+            mockEstates.Add(new Estate
+            {
+                Id = (i + 1).ToString(),
+                Title = $"Estate {i + 1}",
+                Description = $"Opis {i + 1}",
+                Price = 100000 + (i * 1000),
+                SquareMeters = 75 + i,
+                TotalRooms = 3 + (i % 2),
+                Category = EstateCategory.Flat,
+                Images = new List<string> { "image1.jpg", "image2.jpg" },
+                UserId = userId
+            });
+
+            mockEstates.Add(new Estate
+            {
+                Id = (i + 2).ToString(),
+                Title = $"Estate {i + 2}",
+                Description = $"Opis {i + 2}",
+                Price = 100000 + ((i + 1) * 1000),
+                SquareMeters = 75 + (i + 1),
+                TotalRooms = 3 + ((i + 1) % 2),
+                Category = EstateCategory.House,
+                Images = new List<string> { "image3.jpg", "image4.jpg" },
+                UserId = userId
+            });
+        }
+
+        var expectedPaginatedEstates = mockEstates.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        _estatesCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _estatesCursorMock.Setup(cursor => cursor.Current).Returns(expectedPaginatedEstates);
+
+        _estatesCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+
+        _estatesCollectionMock
+            .Setup(collection => collection.CountDocumentsAsync(It.IsAny<FilterDefinition<Estate>>(), null, default))
+            .ReturnsAsync(totalEstatesCount);
+
+        // Act
+        (bool isError, var paginatedEstates, ErrorMessage? error) =
+            await _estateService.GetEstatesCreatedByUser(userId, page, pageSize);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(paginatedEstates, Is.Not.Null);
+        Assert.That(paginatedEstates.Data, Is.Not.Null);
+        Assert.That(paginatedEstates.Data.Count, Is.EqualTo(expectedCount));
+        Assert.That(paginatedEstates.TotalLength, Is.EqualTo(totalEstatesCount));
+    }
+
+    [Test]
+    public async Task GetEstatesCreatedByUser_ShouldReturnEmptyList_WhenNoEstatesExist()
+    {
+        // Arrange
+        var userId = "123";
+
+        _estatesCursorMock.Setup(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _estatesCursorMock.Setup(cursor => cursor.Current).Returns(new List<Estate>());
+
+        _estatesCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+
+        _estatesCollectionMock
+            .Setup(collection => collection.CountDocumentsAsync(It.IsAny<FilterDefinition<Estate>>(), null, default))
+            .ReturnsAsync(0);
+
+        // Act
+        (bool isError, var paginatedEstates, ErrorMessage? error) =
+            await _estateService.GetEstatesCreatedByUser(userId, 1, 2);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(error, Is.Null);
+        Assert.That(paginatedEstates, Is.Not.Null);
+        Assert.That(paginatedEstates.Data, Is.Not.Null);
+        Assert.That(paginatedEstates.Data.Count, Is.EqualTo(0));
+        Assert.That(paginatedEstates.TotalLength, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task GetEstatesCreatedByUser_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var userId = "123";
+
+        _estatesCollectionMock
+            .Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        (bool isError, var paginatedEstates, ErrorMessage? error) =
+            await _estateService.GetEstatesCreatedByUser(userId, 1, 2);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(paginatedEstates, Is.Null);
+        Assert.That(error!.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja nekretnina."));
+    }
+
 
     #endregion
 }
