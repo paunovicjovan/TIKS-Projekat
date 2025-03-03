@@ -830,6 +830,289 @@ public class EstateServiceTests
         Assert.That(error!.Message, Is.EqualTo("Došlo je do greške prilikom preuzimanja nekretnina."));
     }
 
+    #endregion
+
+    #region AddPostToEstate
+
+    [Test]
+    public async Task AddPostToEstate_ShouldReturnTrue_WhenPostIsAddedSuccessfully()
+    {
+        // Arrange
+        var estateId = "123";
+        var postId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.AddPostToEstate(estateId, postId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+        Assert.That(error, Is.Null);
+    }
+
+
+    [Test]
+    public async Task AddPostToEstate_ShouldReturnError_WhenEstateIsNotFoundOrNotUpdated()
+    {
+        // Arrange
+        var estateId = "123";
+        var postId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.AddPostToEstate(estateId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Nekretnina nije pronađena ili nije ažurirana."));
+    }
+
+    [Test]
+    public async Task AddPostToEstate_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var estateId = "123";
+        var postId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.AddPostToEstate(estateId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom dodavanja objave kod nekretnine."));
+    }
+
+    #endregion
+
+    #region RemovePostFromEstate
+
+    [Test]
+    public async Task RemovePostFromEstate_ShouldReturnTrue_WhenPostIsRemovedSuccessfully()
+    {
+        // Arrange
+        var estateId = "123";
+        var postId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.RemovePostFromEstate(estateId, postId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+        Assert.That(error, Is.Null);
+    }
+
+    [Test]
+    public async Task RemovePostFromEstate_ShouldReturnError_WhenPostIsNotFoundInEstate()
+    {
+        // Arrange
+        var estateId = "123";
+        var postId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.RemovePostFromEstate(estateId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Objava nije pronađena kod nekretnine."));
+    }
+
+    [Test]
+    public async Task RemovePostFromEstate_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var estateId = "123";
+        var postId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(), null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.RemovePostFromEstate(estateId, postId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom uklanjanja objave sa nekretnine."));
+    }
+    
+    #endregion
+
+    #region AddFavoriteUserToEstate
+
+    [Test]
+    public async Task AddFavoriteUserToEstate_ShouldReturnTrue_WhenEstateIsUpdatedSuccessfully()
+    {
+        // Arrange
+        var estateId = "123";
+        var userId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) =
+            await _estateService.AddFavoriteUserToEstate(estateId, userId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+        Assert.That(error, Is.Null);
+    }
+
+    [Test]
+    public async Task AddFavoriteUserToEstate_ShouldReturnError_WhenEstateIsNotFoundOrNotUpdated()
+    {
+        // Arrange
+        var estateId = "123";
+        var userId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) =
+            await _estateService.AddFavoriteUserToEstate(estateId, userId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Nekretnina nije pronađena ili nije ažurirana."));
+    }
+
+    [Test]
+    public async Task AddFavoriteUserToEstate_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var estateId = "123";
+        var userId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) =
+            await _estateService.AddFavoriteUserToEstate(estateId, userId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message,
+            Is.EqualTo("Došlo je do greške prilikom dodavanja korisnika kod omiljene nekretnine."));
+    }
+
+    #endregion
+
+    #region RemoveFavoriteUserFromEstate
+
+    [Test]
+    public async Task RemoveFavoriteUserFromEstate_ShouldReturnTrue_WhenUserIsRemovedSuccessfully()
+    {
+        // Arrange
+        var estateId = "123";
+        var userId = "456";
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) =
+            await _estateService.RemoveFavoriteUserFromEstate(estateId, userId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+        Assert.That(error, Is.Null);
+    }
+
+    [Test]
+    public async Task RemoveFavoriteUserFromEstate_ShouldReturnError_WhenUserIsNotFoundInEstate()
+    {
+        // Arrange
+        var estateId = "123";
+        var userId = "456";
+
+
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) =
+            await _estateService.RemoveFavoriteUserFromEstate(estateId, userId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen kod nekretnine."));
+    }
+
+    [Test]
+    public async Task RemoveFavoriteUserFromEstate_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        var estateId = "123";
+        var userId = "456";
+        _estatesCollectionMock
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) =
+            await _estateService.RemoveFavoriteUserFromEstate(estateId, userId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message,
+            Is.EqualTo("Došlo je do greške prilikom uklanjanja korisnika sa omiljene nekretnine."));
+    }
 
     #endregion
 }
