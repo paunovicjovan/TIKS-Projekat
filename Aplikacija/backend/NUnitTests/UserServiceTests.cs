@@ -11,6 +11,7 @@ public class UserServiceTests
     private Mock<IServiceProvider> _serviceProviderMock;
     private Mock<IPasswordHasher<User>> _passwordHasherMock;
     private Mock<IEstateService> _estateServiceMock;
+    private UserService _userService;
 
     [SetUp]
     public void SetUp()
@@ -21,6 +22,12 @@ public class UserServiceTests
         _serviceProviderMock = new Mock<IServiceProvider>();
         _passwordHasherMock = new Mock<IPasswordHasher<User>>();
         _estateServiceMock = new Mock<IEstateService>();
+        _userService = new UserService(
+            _usersCollectionMock.Object,
+            _tokenServiceMock.Object,
+            _serviceProviderMock.Object,
+            _passwordHasherMock.Object
+        );
     }
 
     #region Register
@@ -66,12 +73,8 @@ public class UserServiceTests
         _passwordHasherMock.Setup(hasher => hasher.HashPassword(It.IsAny<User>(), userDto.Password))
             .Returns(fakePasswordHash);
 
-        var userService =
-            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object,
-                _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var authResponse, ErrorMessage? error) = await userService.Register(userDto);
+        (bool isError, var authResponse, ErrorMessage? error) = await _userService.Register(userDto);
 
         // Assert
         // uvek koristimo Assert.That metodu
@@ -117,10 +120,6 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService =
-            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object,
-                _passwordHasherMock.Object);
-
         var userDto = new CreateUserDTO()
         {
             Username = "some invalid ? #username",
@@ -130,7 +129,7 @@ public class UserServiceTests
         };
 
         // Act
-        (bool isError, var authResponse, ErrorMessage? error) = await userService.Register(userDto);
+        (bool isError, var authResponse, ErrorMessage? error) = await _userService.Register(userDto);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -195,12 +194,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService =
-            new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object, _serviceProviderMock.Object,
-                _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var authResponse, ErrorMessage? error) = await userService.Register(userDto);
+        (bool isError, var authResponse, ErrorMessage? error) = await _userService.Register(userDto);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -264,12 +259,8 @@ public class UserServiceTests
         _tokenServiceMock.Setup(service => service.CreateToken(It.IsAny<User>()))
             .Returns(fakeJwt);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object,
-            _passwordHasherMock.Object);
-
         //Act
-        (bool isError, var authResponse, ErrorMessage? error) = await userService.Login(loginRequest);
+        (bool isError, var authResponse, ErrorMessage? error) = await _userService.Login(loginRequest);
 
         //Assert
         Assert.That(isError, Is.False);
@@ -326,14 +317,8 @@ public class UserServiceTests
             Password = "123"
         };
 
-        var userService = new UserService(
-            _usersCollectionMock.Object,
-            _tokenServiceMock.Object,
-            _serviceProviderMock.Object,
-            _passwordHasherMock.Object);
-
         //Act
-        (bool isError, var authResponse, ErrorMessage? error) = await userService.Login(loginRequest);
+        (bool isError, var authResponse, ErrorMessage? error) = await _userService.Login(loginRequest);
 
         //Assert
         Assert.That(isError, Is.True);
@@ -392,12 +377,8 @@ public class UserServiceTests
                 hasher.VerifyHashedPassword(It.IsAny<User>(), existingUser.PasswordHash, loginRequest.Password))
             .Returns(PasswordVerificationResult.Failed);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object,
-            _passwordHasherMock.Object);
-
         //Act
-        (bool isError, var authResponse, ErrorMessage? error) = await userService.Login(loginRequest);
+        (bool isError, var authResponse, ErrorMessage? error) = await _userService.Login(loginRequest);
 
         //Assert
         Assert.That(isError, Is.True);
@@ -446,11 +427,9 @@ public class UserServiceTests
         var claims = new List<Claim>();
         var identity = new ClaimsIdentity(claims);
         var user = new ClaimsPrincipal(identity);
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
 
         // Act
-        (bool isError, var userId, ErrorMessage? error) = userService.GetCurrentUserId(user);
+        (bool isError, var userId, ErrorMessage? error) = _userService.GetCurrentUserId(user);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -464,11 +443,9 @@ public class UserServiceTests
     {
         // Arrange
         ClaimsPrincipal? user = null;
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
 
         // Act
-        (bool isError, var userId, ErrorMessage? error) = userService.GetCurrentUserId(user);
+        (bool isError, var userId, ErrorMessage? error) = _userService.GetCurrentUserId(user);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -515,11 +492,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var userResult, ErrorMessage? error) = await userService.GetById("123");
+        (bool isError, var userResult, ErrorMessage? error) = await _userService.GetById("123");
 
         // Assert
         Assert.That(isError, Is.False);
@@ -561,11 +535,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var userResult, ErrorMessage? error) = await userService.GetById("non-existent-id");
+        (bool isError, var userResult, ErrorMessage? error) = await _userService.GetById("non-existent-id");
 
         // Assert
         Assert.That(isError, Is.True);
@@ -585,11 +556,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var userResult, ErrorMessage? error) = await userService.GetById("123");
+        (bool isError, var userResult, ErrorMessage? error) = await _userService.GetById("123");
 
         // Assert
         Assert.That(isError, Is.True);
@@ -653,11 +621,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(replaceOneResultMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         //Act
-        (bool isError, var updateResult, ErrorMessage? error) = await userService.Update(existingUser.Id, updateDto);
+        (bool isError, var updateResult, ErrorMessage? error) = await _userService.Update(existingUser.Id, updateDto);
 
         //Assert
         Assert.That(isError, Is.False);
@@ -705,12 +670,9 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         const string userId = "123";
         //Act
-        (bool isError, var updateResult, ErrorMessage? error) = await userService.Update(userId, updateDto);
+        (bool isError, var updateResult, ErrorMessage? error) = await _userService.Update(userId, updateDto);
 
         //Assert
         Assert.That(isError, Is.True);
@@ -771,11 +733,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         //Act
-        (bool isError, var updateResult, ErrorMessage? error) = await userService.Update(existingUser.Id, updateDto);
+        (bool isError, var updateResult, ErrorMessage? error) = await _userService.Update(existingUser.Id, updateDto);
 
         //Assert
         Assert.That(isError, Is.True);
@@ -815,11 +774,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddCommentToUser(userId, commentId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddCommentToUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.False);
@@ -846,11 +802,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddCommentToUser(userId, commentId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddCommentToUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -879,11 +832,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error."));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddCommentToUser(userId, commentId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddCommentToUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -917,12 +867,9 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
         (bool isError, var removeResult, ErrorMessage? error) =
-            await userService.RemoveCommentFromUser(userId, commentId);
+            await _userService.RemoveCommentFromUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.False);
@@ -951,12 +898,9 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
         (bool isError, var removeResult, ErrorMessage? error) =
-            await userService.RemoveCommentFromUser(userId, commentId);
+            await _userService.RemoveCommentFromUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -986,12 +930,9 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error."));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
         (bool isError, var removeResult, ErrorMessage? error) =
-            await userService.RemoveCommentFromUser(userId, commentId);
+            await _userService.RemoveCommentFromUser(userId, commentId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1024,11 +965,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddPostToUser(userId, postId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddPostToUser(userId, postId);
 
         // Assert
         Assert.That(isError, Is.False);
@@ -1056,11 +994,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddPostToUser(userId, postId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddPostToUser(userId, postId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1089,11 +1024,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error."));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddPostToUser(userId, postId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddPostToUser(userId, postId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1126,11 +1058,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.RemovePostFromUser(userId, postId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.RemovePostFromUser(userId, postId);
 
         // Assert
         Assert.That(isError, Is.False);
@@ -1158,11 +1087,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.RemovePostFromUser(userId, postId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.RemovePostFromUser(userId, postId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1191,11 +1117,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error."));
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.RemovePostFromUser(userId, postId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.RemovePostFromUser(userId, postId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1260,14 +1183,11 @@ public class UserServiceTests
         _estateServiceMock.Setup(service => service.AddFavoriteUserToEstate(It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         const string estateId = "456";
 
         //Act
         (bool isError, var isSuccess, ErrorMessage? error) =
-            await userService.AddFavoriteEstate(existingUser.Id, estateId);
+            await _userService.AddFavoriteEstate(existingUser.Id, estateId);
 
         //Assert
         Assert.That(isError, Is.False);
@@ -1311,11 +1231,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.AddFavoriteEstate(userId, postId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddFavoriteEstate(userId, postId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1371,12 +1288,9 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         //Act
         (bool isError, var isSuccess, ErrorMessage? error) =
-            await userService.AddFavoriteEstate(existingUser.Id, estateId);
+            await _userService.AddFavoriteEstate(existingUser.Id, estateId);
 
         //Assert
         Assert.That(isError, Is.True);
@@ -1448,14 +1362,11 @@ public class UserServiceTests
             .Setup(service => service.RemoveFavoriteUserFromEstate(It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         const string estateId = "456";
 
         // Act
         (bool isError, var isSuccess, ErrorMessage? error) =
-            await userService.RemoveFavoriteEstate(existingUser.Id, estateId);
+            await _userService.RemoveFavoriteEstate(existingUser.Id, estateId);
 
         // Assert
         Assert.That(isError, Is.False);
@@ -1509,14 +1420,11 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         const string estateId = "456";
 
         // Act
         (bool isError, var isSuccess, ErrorMessage? error) =
-            await userService.RemoveFavoriteEstate(existingUser.Id, estateId);
+            await _userService.RemoveFavoriteEstate(existingUser.Id, estateId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1556,11 +1464,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var isSuccess, ErrorMessage? error) = await userService.RemoveFavoriteEstate(userId, estateId);
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.RemoveFavoriteEstate(userId, estateId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1638,12 +1543,9 @@ public class UserServiceTests
         _estateServiceMock.Setup(service => service.GetEstate(estate.Id))
             .ReturnsAsync(estate);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
         (bool isError, var result, ErrorMessage? error) =
-            await userService.CanAddToFavorite(existingUser.Id, estate.Id);
+            await _userService.CanAddToFavorite(existingUser.Id, estate.Id);
 
         // Assert
         Assert.That(isError, Is.False);
@@ -1676,11 +1578,8 @@ public class UserServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_usersCursorMock.Object);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
-        (bool isError, var result, ErrorMessage? error) = await userService.CanAddToFavorite(userId, estateId);
+        (bool isError, var result, ErrorMessage? error) = await _userService.CanAddToFavorite(userId, estateId);
 
         // Assert
         Assert.That(isError, Is.True);
@@ -1738,16 +1637,13 @@ public class UserServiceTests
 
         _serviceProviderMock.Setup(provider => provider.GetService(typeof(IEstateService)))
             .Returns(_estateServiceMock.Object);
-        
+
         _estateServiceMock.Setup(service => service.GetEstate(It.IsAny<string>()))
             .ReturnsAsync(estate);
 
-        var userService = new UserService(_usersCollectionMock.Object, _tokenServiceMock.Object,
-            _serviceProviderMock.Object, _passwordHasherMock.Object);
-
         // Act
         (bool isError, var canAddToFavorite, ErrorMessage? error) =
-            await userService.CanAddToFavorite(existingUser.Id, estate.Id);
+            await _userService.CanAddToFavorite(existingUser.Id, estate.Id);
 
         // Assert
         Assert.That(isError, Is.False);

@@ -970,6 +970,12 @@ public class EstateServiceTests
 
     #endregion
 
+    #region SearchEstatesFilter
+
+    // Treba da se napisu testovi
+
+    #endregion
+
     #region AddFavoriteUserToEstate
 
     [Test]

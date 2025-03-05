@@ -214,7 +214,6 @@ public class EstateService : IEstateService
         }
     }
 
-
     public async Task<Result<PaginatedResponseDTO<Estate>, ErrorMessage>> GetEstatesCreatedByUser(string userId,
         int page = 1, int pageSize = 10)
     {
