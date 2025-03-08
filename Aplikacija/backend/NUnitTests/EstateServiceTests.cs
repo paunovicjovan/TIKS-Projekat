@@ -955,7 +955,8 @@ public class EstateServiceTests
         var postId = "456";
 
         _estatesCollectionMock
-            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(), null, It.IsAny<CancellationToken>()))
+            .Setup(x => x.UpdateOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<UpdateDefinition<Estate>>(),
+                null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act
@@ -972,7 +973,110 @@ public class EstateServiceTests
 
     #region SearchEstatesFilter
 
-    // Treba da se napisu testovi
+    [Test]
+    [TestCase(0, 2, 2, 5)]
+    [TestCase(2, 2, 2, 5)]
+    [TestCase(4, 2, 1, 5)]
+    [TestCase(6, 2, 0, 5)]
+    public async Task SearchEstatesFilter_ShouldReturnPaginatedResults_WhenParamsAreValid(int skip, int limit,
+        int expectedCount, int totalEstatesCount)
+    {
+        // Arrange
+        var estates = new List<Estate>();
+        for (int i = 0; i < totalEstatesCount; i++)
+        {
+            estates.Add(new Estate
+            {
+                Id = ObjectId.GenerateNewId().ToString(),
+                Title = $"Nekretnina {i + 1}",
+                Description = $"Opis {i + 1}",
+                Price = 100000 + (i * 50000),
+                SquareMeters = 100 + (i * 10),
+                TotalRooms = 3 + (i % 3),
+                Category = EstateCategory.House,
+                FloorNumber = i % 5,
+                Images = ["image1.jpg", "image2.jpg"],
+                Longitude = 45.2671,
+                Latitude = 19.8335,
+                UserId = ObjectId.GenerateNewId().ToString()
+            });
+        }
+
+        _estatesCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(true))
+            .Returns(Task.FromResult(false));
+
+        _estatesCursorMock.SetupGet(cursor => cursor.Current)
+            .Returns(estates);
+
+        _estatesCollectionMock.Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+
+        _estatesCollectionMock.Setup(x => x.CountDocumentsAsync(It.IsAny<FilterDefinition<Estate>>(), null, default))
+            .ReturnsAsync(totalEstatesCount);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) =
+            await _estateService.SearchEstatesFilter(null, null, null, null, skip, limit);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Data, Has.Count.EqualTo(expectedCount));
+        Assert.That(result.TotalLength, Is.EqualTo(totalEstatesCount));
+    }
+
+    [Test]
+    public async Task SearchEstatesFilter_ShouldReturnEmptyResults_WhenNoMatchesFound()
+    {
+        // Arrange
+        _estatesCursorMock.SetupSequence(cursor => cursor.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        
+        _estatesCursorMock.SetupGet(cursor => cursor.Current)
+            .Returns(new List<Estate>());
+
+        _estatesCollectionMock.Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_estatesCursorMock.Object);
+    
+        _estatesCollectionMock.Setup(x => x.CountDocumentsAsync(It.IsAny<FilterDefinition<Estate>>(), null, default))
+            .ReturnsAsync(0);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.SearchEstatesFilter();
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Data, Is.Empty);
+        Assert.That(result.TotalLength, Is.EqualTo(0));
+    }
+    
+    [Test]
+    public async Task SearchEstatesFilter_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        _estatesCollectionMock.Setup(collection => collection.FindAsync(
+                It.IsAny<FilterDefinition<Estate>>(),
+                It.IsAny<FindOptions<Estate, Estate>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database failure"));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _estateService.SearchEstatesFilter();
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom pretrage nekretnina."));
+    }
 
     #endregion
 
@@ -1308,5 +1412,4 @@ public class EstateServiceTests
     }
 
     #endregion
-
 }
