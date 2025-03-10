@@ -114,6 +114,7 @@ public class UserService : IUserService
         {
             return "Korisnički podaci nisu dostupni, ClaimsPrincipal objekat je null.".ToError();
         }
+        
         try
         {
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
