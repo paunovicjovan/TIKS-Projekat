@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text.Json;
 using Microsoft.Playwright;
 
 namespace PlaywrightTests.APITests;
@@ -7,12 +8,95 @@ namespace PlaywrightTests.APITests;
 public class UserControllerTests : PlaywrightTest
 {
     private IAPIRequestContext? _request;
-    private string _userId = string.Empty;
+    private string _mainUserId = string.Empty;
+    private string _secondaryUserId = string.Empty;
+    private string _estateId = string.Empty;
     private string _username = Guid.NewGuid().ToString("N");
     private string _email = $"{Guid.NewGuid():N}@gmail.com";
     private string _password = "@Petar123";
     private string _phoneNumber = "065 123 1212";
     private string _token = string.Empty;
+    
+    // private async Task CreateTestEstate()
+    // {
+    //     if (_request is null)
+    //     {
+    //         throw new Exception("Greška u kontekstu.");
+    //     }
+    //     
+    //     var estateData = new
+    //     {
+    //         Title = "Luksuzna vila",
+    //         Description = "Vila sa bazenom",
+    //         Price = 500000,
+    //         SquareMeters = 250,
+    //         TotalRooms = 20,
+    //         Category = 0,
+    //         Longitude = 10.0,
+    //         Latitude = 20.0,
+    //         Images = new[]
+    //         {
+    //             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image1.jpg"),
+    //             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image2.jpg"),
+    //             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image3.jpg")
+    //         }
+    //     };
+    //
+    //     // var formData = new MultipartFormDataContent();
+    //     //
+    //     // formData.Add(new StringContent(estateData.Title), "Title");
+    //     // formData.Add(new StringContent(estateData.Description), "Description");
+    //     // formData.Add(new StringContent(estateData.Price.ToString()), "Price");
+    //     // formData.Add(new StringContent(estateData.SquareMeters.ToString()), "SquareMeters");
+    //     // formData.Add(new StringContent(estateData.TotalRooms.ToString()), "TotalRooms");
+    //     // formData.Add(new StringContent(estateData.Category.ToString()), "Category");
+    //     // formData.Add(new StringContent(estateData.Longitude.ToString(CultureInfo.InvariantCulture)), "Longitude");
+    //     // formData.Add(new StringContent(estateData.Latitude.ToString(CultureInfo.InvariantCulture)), "Latitude");
+    //     //
+    //     // for (var i = 0; i < estateData.Images.Length; i++)
+    //     // {
+    //     //     var fileContent = new ByteArrayContent(await File.ReadAllBytesAsync(estateData.Images[i]));
+    //     //     fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+    //     //     formData.Add(fileContent, "Images", $"image{i}.jpg");
+    //     // }
+    //     
+    //     var formData = new Dictionary<string, object>
+    //     {
+    //         { "Title", estateData.Title },
+    //         { "Description", estateData.Description },
+    //         { "Price", estateData.Price.ToString() },
+    //         { "SquareMeters", estateData.SquareMeters.ToString() },
+    //         { "TotalRooms", estateData.TotalRooms.ToString() },
+    //         { "Category", estateData.Category.ToString() },
+    //         { "Longitude", estateData.Longitude.ToString(CultureInfo.InvariantCulture) },
+    //         { "Latitude", estateData.Latitude.ToString(CultureInfo.InvariantCulture) }
+    //     };
+    //
+    //     for (var i = 0; i < estateData.Images.Length; i++)
+    //     {
+    //         formData.Add($"Images", new FileInfo(estateData.Images[i]));
+    //     }
+    //     
+    //     var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
+    //     {
+    //         Form = formData,
+    //         Headers = new Dictionary<string, string>
+    //         {
+    //             { "Authorization", $"Bearer {_token}" }
+    //         }
+    //     });
+    //
+    //     var estateResponse = await response.JsonAsync();
+    //
+    //     if (estateResponse?.TryGetProperty("id", out var estateId) ?? false)
+    //     {
+    //         _estateId = estateId.GetString()!;
+    //     }
+    //     else
+    //     {
+    //         throw new Exception("Došlo je do greške pri kreiranju test podataka. Server nije vratio ID nekretnine.");
+    //     }
+    // }
 
     [SetUp]
     public async Task Setup()
@@ -68,8 +152,9 @@ public class UserControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("token", out var token) ?? false) &&
             (authResponse?.TryGetProperty("role", out var role) ?? false))
         {
-            _userId = id.GetString() ?? string.Empty;
+            _mainUserId = id.GetString() ?? string.Empty;
             _token = token.GetString() ?? string.Empty;
+            // await CreateTestEstate();
 
             Assert.Multiple(() =>
             {
@@ -258,7 +343,7 @@ public class UserControllerTests : PlaywrightTest
             return;
         }
 
-        var response = await _request.GetAsync($"User/GetUserById/{_userId}");
+        var response = await _request.GetAsync($"User/GetUserById/{_mainUserId}");
 
         await Expect(response).ToBeOKAsync();
 
@@ -277,7 +362,7 @@ public class UserControllerTests : PlaywrightTest
         {
             Assert.Multiple(() =>
             {
-                Assert.That(id.GetString(), Is.Not.Empty & Is.EqualTo(_userId));
+                Assert.That(id.GetString(), Is.Not.Empty & Is.EqualTo(_mainUserId));
                 Assert.That(username.GetString(), Is.EqualTo(_username));
                 Assert.That(email.GetString(), Is.EqualTo(_email));
                 Assert.That(phoneNumber.GetString(), Is.EqualTo(_phoneNumber));
@@ -370,7 +455,7 @@ public class UserControllerTests : PlaywrightTest
         {
             Assert.Multiple(() =>
             {
-                Assert.That(id.GetString(), Is.Not.Empty & Is.EqualTo(_userId));
+                Assert.That(id.GetString(), Is.Not.Empty & Is.EqualTo(_mainUserId));
                 Assert.That(username.GetString(), Is.EqualTo(newUsername));
                 Assert.That(email.GetString(), Is.EqualTo(_email));
                 Assert.That(phoneNumber.GetString(), Is.EqualTo(newPhoneNumber));
