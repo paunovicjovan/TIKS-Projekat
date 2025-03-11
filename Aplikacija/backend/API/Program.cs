@@ -30,6 +30,11 @@ builder.Services.AddControllers().AddJsonOptions(opt =>
     opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 50 * 1024 * 1024; // 50 MB
+});
+
 builder.Services.AddSwaggerGen(c =>
 {
     //<-- NOTE 'Add' instead of 'Configure'

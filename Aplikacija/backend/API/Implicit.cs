@@ -14,3 +14,4 @@ global using DataLayer.Models;
 global using DataLayer.Interfaces;
 global using Microsoft.AspNetCore.Identity;
 global using DataLayer.Repositories;
+global using Microsoft.AspNetCore.Http.Features;

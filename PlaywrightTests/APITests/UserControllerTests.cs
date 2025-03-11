@@ -1,8 +1,4 @@
-﻿using System.Globalization;
-using System.Text.Json;
-using Microsoft.Playwright;
-
-namespace PlaywrightTests.APITests;
+﻿namespace PlaywrightTests.APITests;
 
 [TestFixture]
 public class UserControllerTests : PlaywrightTest
@@ -16,87 +12,129 @@ public class UserControllerTests : PlaywrightTest
     private string _password = "@Petar123";
     private string _phoneNumber = "065 123 1212";
     private string _token = string.Empty;
-    
-    // private async Task CreateTestEstate()
-    // {
-    //     if (_request is null)
-    //     {
-    //         throw new Exception("Greška u kontekstu.");
-    //     }
-    //     
-    //     var estateData = new
-    //     {
-    //         Title = "Luksuzna vila",
-    //         Description = "Vila sa bazenom",
-    //         Price = 500000,
-    //         SquareMeters = 250,
-    //         TotalRooms = 20,
-    //         Category = 0,
-    //         Longitude = 10.0,
-    //         Latitude = 20.0,
-    //         Images = new[]
-    //         {
-    //             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image1.jpg"),
-    //             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image2.jpg"),
-    //             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image3.jpg")
-    //         }
-    //     };
-    //
-    //     // var formData = new MultipartFormDataContent();
-    //     //
-    //     // formData.Add(new StringContent(estateData.Title), "Title");
-    //     // formData.Add(new StringContent(estateData.Description), "Description");
-    //     // formData.Add(new StringContent(estateData.Price.ToString()), "Price");
-    //     // formData.Add(new StringContent(estateData.SquareMeters.ToString()), "SquareMeters");
-    //     // formData.Add(new StringContent(estateData.TotalRooms.ToString()), "TotalRooms");
-    //     // formData.Add(new StringContent(estateData.Category.ToString()), "Category");
-    //     // formData.Add(new StringContent(estateData.Longitude.ToString(CultureInfo.InvariantCulture)), "Longitude");
-    //     // formData.Add(new StringContent(estateData.Latitude.ToString(CultureInfo.InvariantCulture)), "Latitude");
-    //     //
-    //     // for (var i = 0; i < estateData.Images.Length; i++)
-    //     // {
-    //     //     var fileContent = new ByteArrayContent(await File.ReadAllBytesAsync(estateData.Images[i]));
-    //     //     fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
-    //     //     formData.Add(fileContent, "Images", $"image{i}.jpg");
-    //     // }
-    //     
-    //     var formData = new Dictionary<string, object>
-    //     {
-    //         { "Title", estateData.Title },
-    //         { "Description", estateData.Description },
-    //         { "Price", estateData.Price.ToString() },
-    //         { "SquareMeters", estateData.SquareMeters.ToString() },
-    //         { "TotalRooms", estateData.TotalRooms.ToString() },
-    //         { "Category", estateData.Category.ToString() },
-    //         { "Longitude", estateData.Longitude.ToString(CultureInfo.InvariantCulture) },
-    //         { "Latitude", estateData.Latitude.ToString(CultureInfo.InvariantCulture) }
-    //     };
-    //
-    //     for (var i = 0; i < estateData.Images.Length; i++)
-    //     {
-    //         formData.Add($"Images", new FileInfo(estateData.Images[i]));
-    //     }
-    //     
-    //     var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
-    //     {
-    //         Form = formData,
-    //         Headers = new Dictionary<string, string>
-    //         {
-    //             { "Authorization", $"Bearer {_token}" }
-    //         }
-    //     });
-    //
-    //     var estateResponse = await response.JsonAsync();
-    //
-    //     if (estateResponse?.TryGetProperty("id", out var estateId) ?? false)
-    //     {
-    //         _estateId = estateId.GetString()!;
-    //     }
-    //     else
-    //     {
-    //         throw new Exception("Došlo je do greške pri kreiranju test podataka. Server nije vratio ID nekretnine.");
-    //     }
-    // }
+
+    // [OneTimeSetUp]
+    public async Task CreateTestEstate()
+    {
+        // var headers = new Dictionary<string, string>()
+        // {
+        //     { "Content-Type", "application/json" },
+        // };
+        //
+        // _request = await Playwright.APIRequest.NewContextAsync(new()
+        // {
+        //     BaseURL = "http://localhost:5244/api/",
+        //     ExtraHTTPHeaders = headers,
+        //     IgnoreHTTPSErrors = true
+        // });
+        
+        if (_request is null)
+        {
+            throw new Exception("Greška u kontekstu.");
+        }
+
+        var response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Username = Guid.NewGuid().ToString("N"),
+                Email = $"{Guid.NewGuid():N}@gmail12.com",
+                Password = "P@ssword123",
+                PhoneNumber = "065 123 1212"
+            }
+        });
+
+        if (response.Status != 200)
+        {
+            throw new Exception($"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
+        }
+
+        var authResponse = await response.JsonAsync();
+        
+        var estateAuthorToken = string.Empty;
+
+        if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
+            (authResponse?.TryGetProperty("username", out var username) ?? false) &&
+            (authResponse?.TryGetProperty("email", out var email) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out var phoneNumber) ?? false) &&
+            (authResponse?.TryGetProperty("token", out var token) ?? false) &&
+            (authResponse?.TryGetProperty("role", out var role) ?? false))
+        {
+            _secondaryUserId = id.GetString() ?? string.Empty;
+            estateAuthorToken = token.GetString() ?? string.Empty;
+        }
+
+        var estateData = new
+        {
+            Title = "Luksuzna vila",
+            Description = "Vila sa bazenom",
+            Price = 500000,
+            SquareMeters = 250,
+            TotalRooms = 20,
+            Category = 0,
+            Longitude = 10.0,
+            Latitude = 20.0,
+            Images = new[]
+            {
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image1.jpg"),
+                // Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image2.jpg"),
+                // Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image3.jpg")
+            }
+        };
+
+        var headers = new Dictionary<string, string>()
+        {
+            { "Authorization", $"Bearer {estateAuthorToken}" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        var formData = _request.CreateFormData();
+
+        formData.Append("Title", estateData.Title);
+        formData.Append("Description", estateData.Description);
+        formData.Append("Price", estateData.Price);
+        formData.Append("SquareMeters", estateData.SquareMeters);
+        formData.Append("TotalRooms", estateData.TotalRooms);
+        formData.Append("Category", estateData.Category);
+        formData.Append("Longitude", estateData.Longitude.ToString(CultureInfo.InvariantCulture));
+        formData.Append("Latitude", estateData.Latitude.ToString(CultureInfo.InvariantCulture));
+
+        for (var i = 0; i < estateData.Images.Length; i++)
+        {
+            formData.Append("Images", new FilePayload()
+            {
+                Name = $"image{i}.jpg",
+                MimeType = "image/jpeg",
+                Buffer = await File.ReadAllBytesAsync(estateData.Images[i])
+            });
+        }
+
+        response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
+        {
+            Multipart = formData,
+            Headers = new Dictionary<string, string>
+            {
+                { "Authorization", $"Bearer {estateAuthorToken}" }
+            }
+        });
+
+        var estateResponse = await response.JsonAsync();
+
+        if (estateResponse?.TryGetProperty("id", out var estateId) ?? false)
+        {
+            _estateId = estateId.GetString()!;
+        }
+        else
+        {
+            throw new Exception("Došlo je do greške pri kreiranju test podataka. Server nije vratio ID nekretnine.");
+        }
+    }
 
     [SetUp]
     public async Task Setup()
@@ -540,7 +578,7 @@ public class UserControllerTests : PlaywrightTest
         if (_request is not null)
         {
             // TODO: obrisati kreirane podatke (trebalo bi u OneTimeTearDown kad se zavrse svi testovi)
-
+        
             await _request.DisposeAsync();
             _request = null;
         }
