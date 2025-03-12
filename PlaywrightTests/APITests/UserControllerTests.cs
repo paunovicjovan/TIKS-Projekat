@@ -842,8 +842,42 @@ public class UserControllerTests : PlaywrightTest
     [OneTimeTearDown]
     public async Task Cleanup()
     {
-        // TODO: obrisati kreirane podatke
+        var headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {_estateAuthorToken}"}
+        };
 
-        Console.WriteLine("Brisanje nekretnine i test korisnika");
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+        
+        if (_request is not null)
+        {
+            // TODO: obrisati kreirane podatke
+            try
+            {
+                if (!string.IsNullOrEmpty(_estateId))
+                {
+                    var deleteEstateResponse = await _request.DeleteAsync($"Estate/RemoveEstate/{_estateId}");
+                    if (deleteEstateResponse.Status != 200)
+                    {
+                        throw new Exception($"Greška pri brisanju nekretnine: {deleteEstateResponse.Status}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
+            }
+            finally
+            {
+                await _request.DisposeAsync();
+                _request = null;
+            }
+        }
     }
 }
