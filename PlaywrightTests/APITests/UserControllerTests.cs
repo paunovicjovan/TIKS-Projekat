@@ -585,7 +585,7 @@ public class UserControllerTests : PlaywrightTest
     
     #endregion
     
-    #region AddToFavorites
+    #region AddFavoriteEstate
 
     [Test]
     [Order(13)]
@@ -828,6 +828,72 @@ public class UserControllerTests : PlaywrightTest
     }
     
     #endregion
+    
+    #region Delete
+
+    [Test]
+    [Order(22)]
+    public async Task Delete_ShouldReturnTrue_WhenUserIsDeletedSuccessfuly()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.DeleteAsync($"User/Delete");
+
+        Assert.That(response.Status, Is.EqualTo(204));
+        Assert.That(response.StatusText, Is.EqualTo("No Content"));
+    }
+    
+    [Test]
+    [Order(23)]
+    public async Task Delete_ShouldReturnError_WhenUserDoesNotExist()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.DeleteAsync($"User/Delete");
+        Assert.That(response.Status, Is.EqualTo(400));
+        
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Korisnik nije pronađen."));
+    }
+    
+    [Test]
+    [Order(24)]
+    public async Task Delete_ShouldReturnError_WhenTokenIsNotValid()
+    {
+        var headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {_mainUserToken} not-valid" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.DeleteAsync($"User/Delete");
+
+        Assert.That(response.Status, Is.EqualTo(401));
+        Assert.That(response.StatusText, Is.EqualTo("Unauthorized"));
+    }
+    
+    #endregion
 
     [TearDown]
     public async Task End()
@@ -857,7 +923,6 @@ public class UserControllerTests : PlaywrightTest
         
         if (_request is not null)
         {
-            // TODO: obrisati kreirane podatke
             try
             {
                 if (!string.IsNullOrEmpty(_estateId))
@@ -867,6 +932,11 @@ public class UserControllerTests : PlaywrightTest
                     {
                         throw new Exception($"Greška pri brisanju nekretnine: {deleteEstateResponse.Status}");
                     }
+                }
+                var deleteUserResponse = await _request.DeleteAsync($"User/Delete");
+                if (deleteUserResponse.Status != 204)
+                {
+                    throw new Exception($"$Greška pri brisanju test korisnika: {deleteUserResponse.Status}");
                 }
             }
             catch (Exception ex)
