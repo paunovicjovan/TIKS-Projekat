@@ -102,6 +102,8 @@ public class EstateService : IEstateService
 
             await _estatesCollection.InsertOneAsync(estate);
 
+            await _userService.AddEstateToUser(userId, estate.Id!);
+            
             return estate;
         }
         catch (Exception)
@@ -189,6 +191,8 @@ public class EstateService : IEstateService
                 await _userService.RemoveFavoriteEstate(favoriteUserId, id);
             }
 
+            await _userService.RemoveEstateFromUser(existingEstate.UserId, id);
+
             foreach (var imagePath in existingEstate.Images)
             {
                 string webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
@@ -201,6 +205,7 @@ public class EstateService : IEstateService
             }
 
             var result = await _estatesCollection.DeleteOneAsync(x => x.Id == id);
+            
             if (result.DeletedCount > 0)
             {
                 return true;

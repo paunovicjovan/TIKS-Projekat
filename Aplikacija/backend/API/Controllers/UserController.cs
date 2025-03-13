@@ -135,4 +135,25 @@ public class UserController : ControllerBase
 
         return Ok(canAddToFavorite);
     }
+
+    [HttpDelete("Delete")]
+    [Authorize]
+    public async Task<IActionResult> Delete()
+    {
+        var userResult = _userService.GetCurrentUserId(User);
+        
+        if (userResult.IsError)
+        {
+            return StatusCode(userResult.Error?.StatusCode ?? 400, userResult.Error?.Message);
+        }
+
+        (bool isError, _, ErrorMessage? error) = await _userService.DeleteUser(userResult.Data);
+        
+        if (isError)
+        {
+            return StatusCode(error?.StatusCode ?? 400, error?.Message);
+        }
+
+        return NoContent();
+    }
 }

@@ -382,4 +382,98 @@ public class UserService : IUserService
                 .ToError();
         }
     }
+
+    public async Task<Result<bool, ErrorMessage>> DeleteUser(string userId)
+    {
+        try
+        {
+            var user = await _usersCollection.Find(x => x.Id == userId).FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                return "Korisnik nije pronađen.".ToError();
+            }
+            
+            var estateService = _serviceProvider.GetRequiredService<IEstateService>();
+
+            foreach (var estateId in user.EstateIds)
+            {
+                await estateService.RemoveEstate(estateId);
+            }
+
+            foreach (var estateId in user.FavoriteEstateIds)
+            {
+                await estateService.RemoveFavoriteUserFromEstate(estateId, userId);
+            }
+            
+            var postService = _serviceProvider.GetRequiredService<IPostService>();
+
+            foreach (var postId in user.PostIds)
+            {
+                await postService.DeletePost(postId);
+            }
+            
+            var commentService = _serviceProvider.GetRequiredService<ICommentService>();
+
+            foreach (var commentId in user.CommentIds)
+            {
+                await commentService.DeleteComment(commentId);
+            }
+            
+            var result = await _usersCollection.DeleteOneAsync(x => x.Id == userId);
+            
+            if (result.DeletedCount > 0)
+            {
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception)
+        {
+            return "Došlo je do greške prilikom brisanja korisnika.".ToError();
+        }
+    }
+    
+    public async Task<Result<bool, ErrorMessage>> AddEstateToUser(string userId, string estateId)
+    {
+        try
+        {
+            var updateResult = await _usersCollection.UpdateOneAsync(
+                u => u.Id == userId,
+                Builders<User>.Update.Push(u => u.EstateIds, estateId)
+            );
+
+            if (updateResult.ModifiedCount == 0)
+            {
+                return "Korisnik nije pronađen ili nije ažuriran.".ToError();
+            }
+
+            return true;
+        }
+        catch (Exception)
+        {
+            return "Došlo je do greške prilikom dodavanja nekretnine korisniku.".ToError();
+        }
+    }
+
+    public async Task<Result<bool, ErrorMessage>> RemoveEstateFromUser(string userId, string estateId)
+    {
+        try
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+            var update = Builders<User>.Update.Pull(u => u.EstateIds, estateId);
+
+            var updateResult = await _usersCollection.UpdateOneAsync(filter, update);
+
+            if (updateResult.ModifiedCount == 0)
+                return "Nekretnina nije pronađena kod korisnika.".ToError();
+
+            return true;
+        }
+        catch (Exception)
+        {
+            return "Došlo je do greške prilikom uklanjanja korisnikove nekretnine.".ToError();
+        }
+    }
 }

@@ -14,4 +14,7 @@ public interface IUserService
     public Task<Result<bool, ErrorMessage>> AddFavoriteEstate(string userId, string estateId);
     public Task<Result<bool, ErrorMessage>> RemoveFavoriteEstate(string userId, string estateId);
     public Task<Result<bool, ErrorMessage>> CanAddToFavorite(string userId, string estateId);
+    public Task<Result<bool, ErrorMessage>> DeleteUser(string userId);
+    public Task<Result<bool, ErrorMessage>> AddEstateToUser(string userId, string estateId);
+    public Task<Result<bool, ErrorMessage>> RemoveEstateFromUser(string userId, string estateId);
 }
