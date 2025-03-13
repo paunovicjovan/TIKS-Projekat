@@ -1652,4 +1652,357 @@ public class UserServiceTests
     }
 
     #endregion
+
+    #region DeleteUser
+
+    [Test]
+    public async Task DeleteUser_ShouldReturnTrue_WhenDeletionIsSuccessful()
+    {
+        // Arrange
+        var userId = "123";
+        var existingUser = new User()
+        {
+            Id = userId,
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123123",
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User,
+            EstateIds = new List<string> { "estate1", "estate2" },
+            FavoriteEstateIds = new List<string> { "favEstate1", "favEstate2" },
+            PostIds = new List<string> { "post1", "post2" },
+            CommentIds = new List<string> { "comment1", "comment2" }
+        };
+
+        _usersCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _usersCursorMock.Setup(x => x.Current)
+            .Returns(new List<User> { existingUser });
+
+        _usersCollectionMock
+            .Setup(x => x.FindAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<FindOptions<User>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(IEstateService)))
+            .Returns(_estateServiceMock.Object);
+
+        _estateServiceMock.Setup(x => x.RemoveEstate(It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        _estateServiceMock.Setup(x => x.RemoveFavoriteUserFromEstate(It.IsAny<string>(), userId))
+            .ReturnsAsync(true);
+
+        var postServiceMock = new Mock<IPostService>();
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(IPostService)))
+            .Returns(postServiceMock.Object);
+
+        postServiceMock.Setup(x => x.DeletePost(It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        var commentServiceMock = new Mock<ICommentService>();
+
+        _serviceProviderMock.Setup(provider => provider.GetService(typeof(ICommentService)))
+            .Returns(commentServiceMock.Object);
+
+        commentServiceMock.Setup(x => x.DeleteComment(It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        _usersCollectionMock.Setup(x => x.DeleteOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<CancellationToken>()))
+        .ReturnsAsync(new DeleteResult.Acknowledged(1));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _userService.DeleteUser(userId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(result, Is.True);
+        Assert.That(error, Is.Null);
+
+        _estateServiceMock.Verify(x => x.RemoveEstate(It.IsAny<string>()),
+            Times.Exactly(existingUser.EstateIds.Count));
+
+        _estateServiceMock.Verify(x => x.RemoveFavoriteUserFromEstate(It.IsAny<string>(), userId),
+            Times.Exactly(existingUser.FavoriteEstateIds.Count));
+
+        postServiceMock.Verify(x => x.DeletePost(It.IsAny<string>()),
+            Times.Exactly(existingUser.PostIds.Count));
+
+        commentServiceMock.Verify(x => x.DeleteComment(It.IsAny<string>()),
+            Times.Exactly(existingUser.CommentIds.Count));
+
+        _usersCollectionMock.Verify(x => x.DeleteOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task DeleteUser_ShouldReturnError_WhenUserDoesNotExist()
+    {
+        // Arrange
+        var userId = "123";
+
+        _usersCursorMock.Setup(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _usersCollectionMock.Setup(x => x.FindAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<FindOptions<User>>(),
+            It.IsAny<CancellationToken>()))
+        .ReturnsAsync(_usersCursorMock.Object);
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _userService.DeleteUser(userId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen."));
+
+        _estateServiceMock.Verify(x => x.RemoveEstate(It.IsAny<string>()),
+            Times.Never);
+
+        _estateServiceMock.Verify(x => x.RemoveFavoriteUserFromEstate(It.IsAny<string>(), userId),
+            Times.Never);
+        _usersCollectionMock.Verify(x => x.DeleteOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Test]
+    public async Task DeleteUser_ShouldReturnError_WhenDeletionFails()
+    {
+        // Arrange
+        var userId = "123";
+        var existingUser = new User()
+        {
+            Id = userId,
+            Username = "Petar",
+            Email = "petar@gmail.com",
+            PasswordHash = "123123",
+            PhoneNumber = "066 123 12 12",
+            Role = UserRole.User
+        };
+
+        _usersCursorMock.SetupSequence(x => x.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _usersCursorMock.Setup(x => x.Current).Returns(new List<User> { existingUser });
+
+        _usersCollectionMock.Setup(x => x.FindAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<FindOptions<User>>(),
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_usersCursorMock.Object);
+
+        _usersCollectionMock.Setup(x => x.DeleteOneAsync(It.IsAny<FilterDefinition<User>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DeleteResult.Acknowledged(0));
+
+        // Act
+        (bool isError, var result, ErrorMessage? error) = await _userService.DeleteUser(userId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom brisanja korisnika."));
+    }
+
+    #endregion
+
+    #region AddEstateToUser
+
+    [Test]
+    public async Task AddEstateToUser_ShouldReturnSuccess_WhenUpdateSucceeds()
+    {
+        // Arrange
+        const string userId = "123";
+        const string estateId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddEstateToUser(userId, estateId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(isSuccess, Is.True);
+        Assert.That(error, Is.Null);
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task AddEstateToUser_ShouldReturnError_WhenUserNotUpdated()
+    {
+        // Arrange
+        const string userId = "123";
+        const string estateId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddEstateToUser(userId, estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Korisnik nije pronađen ili nije ažuriran."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task AddEstateToUser_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        const string userId = "123";
+        const string estateId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error."));
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.AddEstateToUser(userId, estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom dodavanja nekretnine korisniku."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region RemoveEstateFromUser
+
+    [Test]
+    public async Task RemoveEstateFromUser_ShouldRemoveEstate_WhenEstateExists()
+    {
+        // Arrange
+        const string userId = "123";
+        const string estateId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.RemoveEstateFromUser(userId, estateId);
+
+        // Assert
+        Assert.That(isError, Is.False);
+        Assert.That(isSuccess, Is.True);
+        Assert.That(error, Is.Null);
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task RemoveEstateFromUser_ShouldReturnError_WhenEstateDoesNotExist()
+    {
+        // Arrange
+        const string userId = "123";
+        const string estateId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.RemoveEstateFromUser(userId, estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Nekretnina nije pronađena kod korisnika."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task RemoveEstateFromUser_ShouldReturnError_WhenExceptionOccurs()
+    {
+        // Arrange
+        const string userId = "123";
+        const string estateId = "456";
+
+        _usersCollectionMock.Setup(collection => collection.UpdateOneAsync(
+                It.IsAny<FilterDefinition<User>>(),
+                It.IsAny<UpdateDefinition<User>>(),
+                It.IsAny<UpdateOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error."));
+
+        // Act
+        (bool isError, var isSuccess, ErrorMessage? error) = await _userService.RemoveEstateFromUser(userId, estateId);
+
+        // Assert
+        Assert.That(isError, Is.True);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.Message, Is.EqualTo("Došlo je do greške prilikom uklanjanja korisnikove nekretnine."));
+
+        _usersCollectionMock.Verify(collection => collection.UpdateOneAsync(
+            It.IsAny<FilterDefinition<User>>(),
+            It.IsAny<UpdateDefinition<User>>(),
+            It.IsAny<UpdateOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
 }
