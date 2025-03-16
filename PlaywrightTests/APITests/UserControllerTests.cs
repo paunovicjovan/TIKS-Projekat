@@ -4,33 +4,35 @@
 public class UserControllerTests : PlaywrightTest
 {
     private IAPIRequestContext? _request;
-    private string _mainUserId = string.Empty;
-    private string _secondaryUserId = string.Empty;
-    private string _estateId = string.Empty;
+    private string _userId = string.Empty;
     private string _username = Guid.NewGuid().ToString("N");
     private string _email = $"{Guid.NewGuid():N}@gmail.com";
-    private string _password = "@Petar123";
-    private string _phoneNumber = "065 123 1212";
-    private string _mainUserToken = string.Empty;
+    private readonly string _password = "@Petar123";
+    private readonly string _phoneNumber = "065 123 1212";
+    private string _userToken = string.Empty;
+    private string _estateId = string.Empty;
     private string _estateAuthorToken = string.Empty;
+    private string _registeredUserToken = string.Empty;
+    private bool _isUserAlreadyDeleted = false;
 
     [OneTimeSetUp]
-    public async Task CreateTestEstate()
+    public async Task CreateTestUserAndEstate()
     {
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
         };
 
-        var playwright = await Microsoft.Playwright.Playwright.CreateAsync();;
-        
+        var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        ;
+
         _request = await playwright.APIRequest.NewContextAsync(new()
         {
             BaseURL = "http://localhost:5244/api/",
             ExtraHTTPHeaders = headers,
             IgnoreHTTPSErrors = true
         });
-        
+
         if (_request is null)
         {
             throw new Exception("Greška u kontekstu.");
@@ -50,11 +52,12 @@ public class UserControllerTests : PlaywrightTest
 
         if (response.Status != 200)
         {
-            throw new Exception($"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
+            throw new Exception(
+                $"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
         }
 
         var authResponse = await response.JsonAsync();
-        
+
         if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
             (authResponse?.TryGetProperty("username", out var username) ?? false) &&
             (authResponse?.TryGetProperty("email", out var email) ?? false) &&
@@ -62,7 +65,6 @@ public class UserControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("token", out var token) ?? false) &&
             (authResponse?.TryGetProperty("role", out var role) ?? false))
         {
-            _secondaryUserId = id.GetString() ?? string.Empty;
             _estateAuthorToken = token.GetString() ?? string.Empty;
         }
 
@@ -104,7 +106,7 @@ public class UserControllerTests : PlaywrightTest
                 Buffer = await File.ReadAllBytesAsync(estateData.Images[i])
             });
         }
-        
+
         headers = new Dictionary<string, string>()
         {
             { "Authorization", $"Bearer {_estateAuthorToken}" }
@@ -139,8 +141,63 @@ public class UserControllerTests : PlaywrightTest
     {
         var headers = new Dictionary<string, string>()
         {
+            { "Content-Type", "application/json" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        if (_request is null)
+        {
+            throw new Exception("Greška u kontekstu.");
+        }
+
+        _username = Guid.NewGuid().ToString("N");
+        _email = $"{Guid.NewGuid():N}@gmail.com";
+        _isUserAlreadyDeleted = false;
+
+        var response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Username = _username,
+                Email = _email,
+                Password = _password,
+                PhoneNumber = _phoneNumber
+            }
+        });
+
+        if (response.Status != 200)
+        {
+            throw new Exception(
+                $"Došlo je do greške pri kreiranju test korisnika: {response.Status} - {response.StatusText}");
+        }
+
+        var authResponse = await response.JsonAsync();
+
+        if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
+            (authResponse?.TryGetProperty("username", out var username) ?? false) &&
+            (authResponse?.TryGetProperty("email", out var email) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out var phoneNumber) ?? false) &&
+            (authResponse?.TryGetProperty("token", out var token) ?? false) &&
+            (authResponse?.TryGetProperty("role", out var role) ?? false))
+        {
+            _userId = id.GetString() ?? string.Empty;
+            _userToken = token.GetString() ?? string.Empty;
+        }
+        else
+        {
+            throw new Exception("Nisu pronađeni svi potrebni podaci u odgovoru pri kreiranju test korisnika.");
+        }
+
+        headers = new Dictionary<string, string>()
+        {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_mainUserToken}" }
+            { "Authorization", $"Bearer {_userToken}" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -152,9 +209,8 @@ public class UserControllerTests : PlaywrightTest
     }
 
     #region Register
-    
+
     [Test]
-    [Order(1)]
     public async Task Register_ShouldRegisterUser_WhenUserIsValid()
     {
         if (_request is null)
@@ -167,10 +223,10 @@ public class UserControllerTests : PlaywrightTest
         {
             DataObject = new
             {
-                Username = _username,
-                Email = _email,
-                Password = _password,
-                PhoneNumber = _phoneNumber
+                Username = "Petar",
+                Email = "petar@gmail.com",
+                Password = "@Petar123",
+                PhoneNumber = "064 123 1212"
             }
         });
 
@@ -190,15 +246,14 @@ public class UserControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("token", out var token) ?? false) &&
             (authResponse?.TryGetProperty("role", out var role) ?? false))
         {
-            _mainUserId = id.GetString() ?? string.Empty;
-            _mainUserToken = token.GetString() ?? string.Empty;
+            _registeredUserToken = token.GetString()!;
 
             Assert.Multiple(() =>
             {
                 Assert.That(id.GetString(), Is.Not.Empty);
-                Assert.That(username.GetString(), Is.EqualTo(_username));
-                Assert.That(email.GetString(), Is.EqualTo(_email));
-                Assert.That(phoneNumber.GetString(), Is.EqualTo(_phoneNumber));
+                Assert.That(username.GetString(), Is.EqualTo("Petar"));
+                Assert.That(email.GetString(), Is.EqualTo("petar@gmail.com"));
+                Assert.That(phoneNumber.GetString(), Is.EqualTo("064 123 1212"));
                 Assert.That(token.GetString(), Is.Not.Empty);
                 Assert.That(role.GetString(), Is.EqualTo("User"));
             });
@@ -208,9 +263,8 @@ public class UserControllerTests : PlaywrightTest
             Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
         }
     }
-
+    
     [Test]
-    [Order(2)]
     public async Task Register_ShouldReturnError_WhenUsernameIsNotValid()
     {
         if (_request is null)
@@ -239,7 +293,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(3)]
     public async Task Register_ShouldReturnError_WhenUsernameIsTaken()
     {
         if (_request is null)
@@ -253,7 +306,7 @@ public class UserControllerTests : PlaywrightTest
             DataObject = new
             {
                 Username = _username,
-                Email = _email,
+                Email = $"{Guid.NewGuid():N}@gmail.com",
                 Password = _password,
                 PhoneNumber = _phoneNumber
             }
@@ -264,13 +317,12 @@ public class UserControllerTests : PlaywrightTest
         var message = await response.TextAsync();
         Assert.That(message, Is.EqualTo("Već postoji korisnik sa unetim korisničkim imenom."));
     }
-    
+
     #endregion
 
     #region Login
 
     [Test]
-    [Order(4)]
     public async Task Login_ShouldLoginUser_WhenCredentialsAreValid()
     {
         if (_request is null)
@@ -304,8 +356,6 @@ public class UserControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("token", out var token) ?? false) &&
             (authResponse?.TryGetProperty("role", out var role) ?? false))
         {
-            _mainUserToken = token.GetString() ?? string.Empty;
-
             Assert.Multiple(() =>
             {
                 Assert.That(id.GetString(), Is.Not.Empty);
@@ -323,7 +373,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(5)]
     public async Task Login_ShouldReturnError_WhenEmailDoesNotExist()
     {
         if (_request is null)
@@ -350,7 +399,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(6)]
     public async Task Login_ShouldReturnError_WhenPasswordIsIncorrect()
     {
         if (_request is null)
@@ -373,13 +421,12 @@ public class UserControllerTests : PlaywrightTest
         var message = await response.TextAsync();
         Assert.That(message, Is.EqualTo("Neispravan email ili lozinka."));
     }
-    
+
     #endregion
-    
+
     #region GetById
 
     [Test]
-    [Order(7)]
     public async Task GetById_ShouldReturnUser_WhenUserExists()
     {
         if (_request is null)
@@ -388,7 +435,7 @@ public class UserControllerTests : PlaywrightTest
             return;
         }
 
-        var response = await _request.GetAsync($"User/GetUserById/{_mainUserId}");
+        var response = await _request.GetAsync($"User/GetUserById/{_userId}");
 
         await Expect(response).ToBeOKAsync();
 
@@ -407,7 +454,7 @@ public class UserControllerTests : PlaywrightTest
         {
             Assert.Multiple(() =>
             {
-                Assert.That(id.GetString(), Is.Not.Empty & Is.EqualTo(_mainUserId));
+                Assert.That(id.GetString(), Is.Not.Empty & Is.EqualTo(_userId));
                 Assert.That(username.GetString(), Is.EqualTo(_username));
                 Assert.That(email.GetString(), Is.EqualTo(_email));
                 Assert.That(phoneNumber.GetString(), Is.EqualTo(_phoneNumber));
@@ -421,7 +468,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(8)]
     public async Task GetById_ShouldReturnError_WhenUserDoesNotExist()
     {
         if (_request is null)
@@ -441,7 +487,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(9)]
     public async Task GetById_ShouldReturnError_WhenExceptionOccurs()
     {
         if (_request is null)
@@ -461,11 +506,10 @@ public class UserControllerTests : PlaywrightTest
     }
 
     #endregion
-    
+
     #region Update
-    
+
     [Test]
-    [Order(10)]
     public async Task Update_ShouldUpdateUser_WhenUserExistsAndUsernameIsValid(
         [Values("petar", "petar12", "_petar.")]
         string newUsername)
@@ -504,7 +548,7 @@ public class UserControllerTests : PlaywrightTest
         {
             Assert.Multiple(() =>
             {
-                Assert.That(id.GetString(), Is.Not.Empty & Is.EqualTo(_mainUserId));
+                Assert.That(id.GetString(), Is.Not.Empty & Is.EqualTo(_userId));
                 Assert.That(username.GetString(), Is.EqualTo(newUsername));
                 Assert.That(email.GetString(), Is.EqualTo(_email));
                 Assert.That(phoneNumber.GetString(), Is.EqualTo(newPhoneNumber));
@@ -518,13 +562,12 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(11)]
     public async Task Update_ShouldReturnError_WhenTokenIsNotValid()
     {
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_mainUserToken} not-valid" }
+            { "Authorization", $"Bearer {_userToken} not-valid" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -554,7 +597,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(12)]
     public async Task Update_ShouldReturnError_WhenUsernameIsNotValid(
         [Values("#1", "petar petar", "ime?")] string newUsername)
     {
@@ -582,13 +624,12 @@ public class UserControllerTests : PlaywrightTest
             Is.EqualTo(
                 "Korisničko ime nije u validnom formatu. Dozvoljena su mala i velika slova abecede, brojevi, _ i ."));
     }
-    
+
     #endregion
-    
+
     #region AddFavoriteEstate
 
     [Test]
-    [Order(13)]
     public async Task AddFavoriteEstate_ShouldAddFavoriteEstate_WhenDataIsValid()
     {
         if (_request is null)
@@ -612,7 +653,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(14)]
     public async Task AddFavoriteEstate_ShouldReturnError_WhenEstateIsAlreadyFavorite()
     {
         if (_request is null)
@@ -620,23 +660,24 @@ public class UserControllerTests : PlaywrightTest
             Assert.Fail("Greška u kontekstu.");
             return;
         }
+        
+        await _request.PostAsync($"User/AddToFavorites/{_estateId}");
 
         var response = await _request.PostAsync($"User/AddToFavorites/{_estateId}");
-        
+
         Assert.That(response.Status, Is.EqualTo(400));
 
         var message = await response.TextAsync();
         Assert.That(message, Is.EqualTo("Nekretnina je već u omiljenim."));
     }
-    
+
     [Test]
-    [Order(15)]
     public async Task AddFavoriteEstate_ShouldReturnError_WhenTokenIsNotValid()
     {
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_mainUserToken} not-valid" }
+            { "Authorization", $"Bearer {_userToken} not-valid" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -657,13 +698,12 @@ public class UserControllerTests : PlaywrightTest
         Assert.That(response.Status, Is.EqualTo(401));
         Assert.That(response.StatusText, Is.EqualTo("Unauthorized"));
     }
-    
+
     #endregion
-    
+
     #region RemoveFavoriteEstate
 
     [Test]
-    [Order(16)]
     public async Task RemoveFavoriteEstate_ShouldRemoveFavoriteEstate_WhenDataIsValid()
     {
         if (_request is null)
@@ -671,6 +711,8 @@ public class UserControllerTests : PlaywrightTest
             Assert.Fail("Greška u kontekstu.");
             return;
         }
+        
+        await _request.PostAsync($"User/AddToFavorites/{_estateId}");
 
         var response = await _request.DeleteAsync($"User/RemoveFromFavorites/{_estateId}");
 
@@ -687,7 +729,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(17)]
     public async Task RemoveFavoriteEstate_ShouldReturnError_WhenEstateIsNotFavorite()
     {
         if (_request is null)
@@ -705,13 +746,12 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(18)]
     public async Task RemoveFavoriteEstate_ShouldReturnError_WhenTokenIsNotValid()
     {
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_mainUserToken} not-valid" }
+            { "Authorization", $"Bearer {_userToken} not-valid" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -732,13 +772,12 @@ public class UserControllerTests : PlaywrightTest
         Assert.That(response.Status, Is.EqualTo(401));
         Assert.That(response.StatusText, Is.EqualTo("Unauthorized"));
     }
-    
+
     #endregion
-    
+
     #region CanAddToFavorite
 
     [Test]
-    [Order(19)]
     public async Task CanAddToFavorite_ShouldReturnTrue_WhenUserCanAddEstateToFavorites()
     {
         if (_request is null)
@@ -756,19 +795,18 @@ public class UserControllerTests : PlaywrightTest
             Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
         }
 
-        var isSuccessful = await response.JsonAsync<bool>();
+        var canAddToFavorite = await response.JsonAsync<bool>();
 
-        Assert.That(isSuccessful, Is.True);
+        Assert.That(canAddToFavorite, Is.True);
     }
-    
+
     [Test]
-    [Order(20)]
     public async Task CanAddToFavorite_ShouldReturnError_WhenTokenIsNotValid()
     {
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_mainUserToken} not-valid" }
+            { "Authorization", $"Bearer {_userToken} not-valid" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -791,7 +829,6 @@ public class UserControllerTests : PlaywrightTest
     }
 
     [Test]
-    [Order(21)]
     public async Task CanAddToFavorite_ShouldReturnFalse_WhenUserIsOwnerOfEstate()
     {
         var headers = new Dictionary<string, string>()
@@ -826,13 +863,12 @@ public class UserControllerTests : PlaywrightTest
 
         Assert.That(canAddToFavorite, Is.False);
     }
-    
+
     #endregion
-    
+
     #region Delete
 
     [Test]
-    [Order(22)]
     public async Task Delete_ShouldReturnTrue_WhenUserIsDeletedSuccessfuly()
     {
         if (_request is null)
@@ -845,10 +881,10 @@ public class UserControllerTests : PlaywrightTest
 
         Assert.That(response.Status, Is.EqualTo(204));
         Assert.That(response.StatusText, Is.EqualTo("No Content"));
+        _isUserAlreadyDeleted = true;
     }
-    
+
     [Test]
-    [Order(23)]
     public async Task Delete_ShouldReturnError_WhenUserDoesNotExist()
     {
         if (_request is null)
@@ -856,22 +892,24 @@ public class UserControllerTests : PlaywrightTest
             Assert.Fail("Greška u kontekstu.");
             return;
         }
-
+        
+        await _request.DeleteAsync($"User/Delete");
+        
         var response = await _request.DeleteAsync($"User/Delete");
         Assert.That(response.Status, Is.EqualTo(400));
-        
+
         var message = await response.TextAsync();
         Assert.That(message, Is.EqualTo("Korisnik nije pronađen."));
+        _isUserAlreadyDeleted = true;
     }
-    
+
     [Test]
-    [Order(24)]
     public async Task Delete_ShouldReturnError_WhenTokenIsNotValid()
     {
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_mainUserToken} not-valid" }
+            { "Authorization", $"Bearer {_userToken} not-valid" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -892,26 +930,19 @@ public class UserControllerTests : PlaywrightTest
         Assert.That(response.Status, Is.EqualTo(401));
         Assert.That(response.StatusText, Is.EqualTo("Unauthorized"));
     }
-    
+
     #endregion
 
     [TearDown]
     public async Task End()
     {
-        if (_request is not null)
-        {
-            await _request.DisposeAsync();
-            _request = null;
-        }
-    }
-
-    [OneTimeTearDown]
-    public async Task Cleanup()
-    {
+        if (_isUserAlreadyDeleted)
+            return;
+        
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_estateAuthorToken}"}
+            { "Authorization", $"Bearer {_userToken}" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -920,34 +951,94 @@ public class UserControllerTests : PlaywrightTest
             ExtraHTTPHeaders = headers,
             IgnoreHTTPSErrors = true
         });
+
+        if (_request is null)
+            throw new Exception("Greška u kontekstu.");
         
-        if (_request is not null)
+        try
         {
-            try
+            var deleteUserResponse = await _request.DeleteAsync($"User/Delete");
+            if (deleteUserResponse.Status != 204)
             {
-                if (!string.IsNullOrEmpty(_estateId))
-                {
-                    var deleteEstateResponse = await _request.DeleteAsync($"Estate/RemoveEstate/{_estateId}");
-                    if (deleteEstateResponse.Status != 200)
-                    {
-                        throw new Exception($"Greška pri brisanju nekretnine: {deleteEstateResponse.Status}");
-                    }
-                }
-                var deleteUserResponse = await _request.DeleteAsync($"User/Delete");
-                if (deleteUserResponse.Status != 204)
-                {
-                    throw new Exception($"$Greška pri brisanju test korisnika: {deleteUserResponse.Status}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
-            }
-            finally
-            {
-                await _request.DisposeAsync();
-                _request = null;
+                throw new Exception($"Greška pri brisanju test korisnika: {deleteUserResponse.Status}");
             }
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
+        }
+        finally
+        {
+            await _request.DisposeAsync();
+            _request = null;
+        }
+        
+    }
+
+    [OneTimeTearDown]
+    public async Task Cleanup()
+    {
+        var headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {_estateAuthorToken}" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        if (_request is null)
+            throw new Exception("Greška u kontekstu.");
+            
+        try
+        {
+            if (!string.IsNullOrEmpty(_estateId))
+            {
+                var deleteEstateResponse = await _request.DeleteAsync($"Estate/RemoveEstate/{_estateId}");
+                if (deleteEstateResponse.Status != 200)
+                {
+                    throw new Exception($"Greška pri brisanju test nekretnine: {deleteEstateResponse.Status}");
+                }
+            }
+
+            var deleteEstateAuthorResponse = await _request.DeleteAsync($"User/Delete");
+            if (deleteEstateAuthorResponse.Status != 204)
+            {
+                throw new Exception($"$Greška pri brisanju test korisnika: {deleteEstateAuthorResponse.Status}");
+            }
+
+            headers = new Dictionary<string, string>()
+            {
+                { "Content-Type", "application/json" },
+                { "Authorization", $"Bearer {_registeredUserToken}" }
+            };
+
+            _request = await Playwright.APIRequest.NewContextAsync(new()
+            {
+                BaseURL = "http://localhost:5244/api/",
+                ExtraHTTPHeaders = headers,
+                IgnoreHTTPSErrors = true
+            });
+
+            var deleteRegisteredUserResponse = await _request.DeleteAsync($"User/Delete");
+            if (deleteRegisteredUserResponse.Status != 204)
+            {
+                throw new Exception($"Greška pri brisanju test korisnika: {deleteRegisteredUserResponse.Status}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
+        }
+        finally
+        {
+            await _request.DisposeAsync();
+            _request = null;
+        }
+        
     }
 }
