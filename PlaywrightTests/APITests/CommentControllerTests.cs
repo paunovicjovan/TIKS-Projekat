@@ -9,6 +9,7 @@ public class CommentControllerTests : PlaywrightTest
     private string _postId = string.Empty;
     private string _commentId = string.Empty;
     private string _commentAuthorToken = string.Empty;
+    private List<string> _postIdsToDelete = new List<string>();
 
     [OneTimeSetUp]
     public async Task CreateTestUserAndPost()
@@ -61,7 +62,7 @@ public class CommentControllerTests : PlaywrightTest
         {
             _commentAuthorToken = token.GetString() ?? string.Empty;
         }
-        
+
         // kreiranje test objave
         headers = new Dictionary<string, string>()
         {
@@ -75,7 +76,7 @@ public class CommentControllerTests : PlaywrightTest
             ExtraHTTPHeaders = headers,
             IgnoreHTTPSErrors = true
         });
-        
+
         response = await _request.PostAsync("Post/Create", new APIRequestContextOptions
         {
             DataObject = new
@@ -84,19 +85,18 @@ public class CommentControllerTests : PlaywrightTest
                 Content = "Hello World!"
             }
         });
-        
+
         var postResponse = await response.JsonAsync();
-        
+
         if (postResponse?.TryGetProperty("id", out var postId) ?? false)
         {
             _postId = postId.GetString()!;
+            _postIdsToDelete.Add(_postId);
         }
         else
         {
             throw new Exception("Došlo je do greške pri kreiranju test podataka. Server nije vratio ID posta.");
         }
-        
-        // kreiranje test komentara na objavu
     }
 
     [SetUp]
@@ -114,7 +114,7 @@ public class CommentControllerTests : PlaywrightTest
             ExtraHTTPHeaders = headers,
             IgnoreHTTPSErrors = true
         });
-        
+
         var response = await _request.PostAsync("Comment/Create", new APIRequestContextOptions
         {
             DataObject = new
@@ -123,9 +123,9 @@ public class CommentControllerTests : PlaywrightTest
                 PostId = _postId
             }
         });
-        
+
         var commentResponse = await response.JsonAsync();
-        
+
         if (commentResponse?.TryGetProperty("id", out var commentId) ?? false)
         {
             _commentId = commentId.GetString()!;
@@ -136,6 +136,8 @@ public class CommentControllerTests : PlaywrightTest
         }
     }
 
+    #region CreateComment
+
     [Test]
     public async Task CreateComment_ShouldCreateComment_WhenDataIsValid([Values(1, 50, 1000)] int length)
     {
@@ -144,9 +146,9 @@ public class CommentControllerTests : PlaywrightTest
             Assert.Fail("Greška u kontekstu.");
             return;
         }
-        
+
         var commentContent = new string('a', length);
-        
+
         var response = await _request.PostAsync("Comment/Create", new APIRequestContextOptions()
         {
             DataObject = new
@@ -205,7 +207,7 @@ public class CommentControllerTests : PlaywrightTest
             Assert.Fail("Greška u kontekstu.");
             return;
         }
-        
+
         var response = await _request.PostAsync("Comment/Create", new APIRequestContextOptions()
         {
             DataObject = new
@@ -214,7 +216,7 @@ public class CommentControllerTests : PlaywrightTest
                 PostId = _postId
             }
         });
-        
+
         Assert.That(response.Status, Is.EqualTo(401));
         Assert.That(response.StatusText, Is.EqualTo("Unauthorized"));
     }
@@ -227,9 +229,9 @@ public class CommentControllerTests : PlaywrightTest
             Assert.Fail("Greška u kontekstu.");
             return;
         }
-        
+
         var commentContent = new string('a', length);
-        
+
         var response = await _request.PostAsync("Comment/Create", new APIRequestContextOptions()
         {
             DataObject = new
@@ -242,9 +244,176 @@ public class CommentControllerTests : PlaywrightTest
         Assert.That(response.Status, Is.EqualTo(400));
 
         var message = await response.TextAsync();
-        
+
         Assert.That(message, Is.EqualTo("Komentar mora sadržati između 1 i 1000 karaktera."));
     }
+
+    #endregion
+
+    #region GetCommentsForPost
+
+    [TestCase(0, 2, 2, 3)]
+    [TestCase(1, 2, 2, 3)]
+    [TestCase(2, 2, 1, 3)]
+    [TestCase(3, 2, 0, 3)]
+    public async Task GetCommentsForPost_ShouldReturnCorrectPaginatedComments_WhenParamsAreValid(int skip, int limit,
+        int expectedCount, int totalCount)
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        var response = await _request.PostAsync("Post/Create", new APIRequestContextOptions
+        {
+            DataObject = new
+            {
+                Title = "Post sa komentarima",
+                Content = "Hello World!"
+            }
+        });
+
+        await Expect(response).ToBeOKAsync();
+
+        var postResponse = await response.JsonAsync();
+
+        string postId;
+        
+        if (postResponse?.TryGetProperty("id", out var id) ?? false)
+        {
+            postId = id.GetString()!;
+            _postIdsToDelete.Add(postId);
+        }
+        else
+        {
+            Assert.Fail("Došlo je do greške pri kreiranju test podataka. Server nije vratio ID posta.");
+            return;
+        }
+
+        for (int i = 0; i < totalCount; i++)
+        {
+            response = await _request.PostAsync("Comment/Create", new APIRequestContextOptions()
+            {
+                DataObject = new
+                {
+                    Content = $"Komentar {i + 1}",
+                    PostId = postId
+                }
+            });
+
+            if (response.Status != 200)
+            {
+                Assert.Fail("Greška pri kreiranju test komentara.");
+                return;
+            }
+        }
+        
+        response = await _request.GetAsync($"Comment/GetCommentsForPost/{postId}?skip={skip}&limit={limit}");
+
+        await Expect(response).ToBeOKAsync();
+
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+        
+        var paginatedComments = await response.JsonAsync();
+        
+        if ((paginatedComments?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedComments?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(totalCount));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(expectedCount));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetCommentsForPost_ShouldReturnEmptyList_WhenNoCommentsExist()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        var response = await _request.PostAsync("Post/Create", new APIRequestContextOptions
+        {
+            DataObject = new
+            {
+                Title = "Post sa komentarima",
+                Content = "Hello World!"
+            }
+        });
+
+        await Expect(response).ToBeOKAsync();
+
+        var postResponse = await response.JsonAsync();
+
+        string postId;
+        
+        if (postResponse?.TryGetProperty("id", out var id) ?? false)
+        {
+            postId = id.GetString()!;
+            _postIdsToDelete.Add(postId);
+        }
+        else
+        {
+            Assert.Fail("Došlo je do greške pri kreiranju test podataka. Server nije vratio ID posta.");
+            return;
+        }
+        
+        response = await _request.GetAsync($"Comment/GetCommentsForPost/{postId}");
+
+        await Expect(response).ToBeOKAsync();
+
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+        
+        var paginatedComments = await response.JsonAsync();
+        
+        if ((paginatedComments?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedComments?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(0));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(0));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetCommentsForPost_ShouldReturnError_WhenExceptionOccurs()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        string invalidObjectId = "invalid id";
+        var response = await _request.GetAsync($"Comment/GetCommentsForPost/{invalidObjectId}");
+        
+        Assert.That(response.Status, Is.EqualTo(400));
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Došlo je do greške prilikom preuzimanja komentara."));
+    }
+
+    #endregion
 
     [TearDown]
     public async Task TearDown()
@@ -292,9 +461,9 @@ public class CommentControllerTests : PlaywrightTest
             { "Content-Type", "application/json" },
             { "Authorization", $"Bearer {_commentAuthorToken}" }
         };
-        
+
         var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-        
+
         _request = await playwright.APIRequest.NewContextAsync(new()
         {
             BaseURL = "http://localhost:5244/api/",
@@ -304,18 +473,21 @@ public class CommentControllerTests : PlaywrightTest
 
         if (_request is null)
             throw new Exception("Greška u kontekstu.");
-            
+
         try
         {
-            if (!string.IsNullOrEmpty(_postId))
+            if (_postIdsToDelete.Any())
             {
-                var deletePostResponse = await _request.DeleteAsync($"Post/Delete/{_postId}");
-                if (deletePostResponse.Status != 204)
+                foreach (var postId in _postIdsToDelete)
                 {
-                    throw new Exception($"Greška pri brisanju test objave: {deletePostResponse.Status}");
+                    var deletePostResponse = await _request.DeleteAsync($"Post/Delete/{postId}");
+                    if (deletePostResponse.Status != 204)
+                    {
+                        throw new Exception($"Greška pri brisanju test objave: {deletePostResponse.Status}");
+                    }
                 }
             }
-            
+
             var deleteCommentAuthorResponse = await _request.DeleteAsync($"User/Delete");
             if (deleteCommentAuthorResponse.Status != 204)
             {
@@ -330,6 +502,6 @@ public class CommentControllerTests : PlaywrightTest
         {
             await _request.DisposeAsync();
             _request = null;
-        }     
+        }
     }
 }
