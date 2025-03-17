@@ -24,7 +24,6 @@ public class UserControllerTests : PlaywrightTest
         };
 
         var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-        ;
 
         _request = await playwright.APIRequest.NewContextAsync(new()
         {
@@ -1038,7 +1037,6 @@ public class UserControllerTests : PlaywrightTest
         {
             await _request.DisposeAsync();
             _request = null;
-        }
-        
+        }     
     }
 }
