@@ -9,7 +9,8 @@ public class CommentControllerTests : PlaywrightTest
     private string _postId = string.Empty;
     private string _commentId = string.Empty;
     private string _commentAuthorToken = string.Empty;
-    private List<string> _postIdsToDelete = new List<string>();
+    private List<string> _postIdsToDelete = [];
+    private bool _isCommentAlreadyDeleted;
 
     [OneTimeSetUp]
     public async Task CreateTestUserAndPost()
@@ -125,7 +126,8 @@ public class CommentControllerTests : PlaywrightTest
         });
 
         var commentResponse = await response.JsonAsync();
-
+        _isCommentAlreadyDeleted = false;
+        
         if (commentResponse?.TryGetProperty("id", out var commentId) ?? false)
         {
             _commentId = commentId.GetString()!;
@@ -414,10 +416,184 @@ public class CommentControllerTests : PlaywrightTest
     }
 
     #endregion
+    
+    #region UpdateComment
+
+    [Test]
+    public async Task UpdateComment_ShouldReturnUpdatedComment_WhenSuccessful()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string newCommentContent = "Novi sadrzaj";
+
+        var response = await _request.PutAsync($"Comment/Update/{_commentId}", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Content = newCommentContent
+            }
+        });
+
+        await Expect(response).ToBeOKAsync();
+        
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var updatedComment = await response.JsonAsync();
+
+        if ((updatedComment?.TryGetProperty("id", out var id) ?? false) &&
+            (updatedComment?.TryGetProperty("content", out var content) ?? false) &&
+            (updatedComment?.TryGetProperty("createdAt", out var createdAt) ?? false) &&
+            (updatedComment?.TryGetProperty("author", out var author) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(id.GetString(), Is.Not.Empty);
+                Assert.That(content.GetString(), Is.EqualTo(newCommentContent));
+                Assert.That(createdAt.GetDateTime(), Is.Not.EqualTo(default(DateTime)));
+                Assert.That(author.ValueKind, Is.EqualTo(JsonValueKind.Object));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task UpdateComment_ShouldReturnError_WhenContentIsInvalid([Values(0, 1001)] int contentLength)
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        string newCommentContent = new string('a', contentLength);
+
+        var response = await _request.PutAsync($"Comment/Update/{_commentId}", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Content = newCommentContent
+            }
+        });
+
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+
+        Assert.That(message, Is.EqualTo("Komentar mora sadržati između 1 i 1000 karaktera."));
+    }
+
+    [Test]
+    public async Task UpdateComment_ShouldReturnError_WhenCommentNotFound()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        const string nonExistentCommentId = "67d884a54e2da5f583e623e3";
+        
+        var response = await _request.PutAsync($"Comment/Update/{nonExistentCommentId}", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Content = "Novi sadrzaj"
+            }
+        });
+
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+
+        Assert.That(message, Is.EqualTo("Komentar nije pronađen ili nije izvršena promena."));
+    }
+
+    #endregion
+    
+    #region DeleteComment
+
+    [Test]
+    public async Task DeleteComment_ShouldReturnTrue_WhenCommentIsDeletedSuccessfully()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        var response = await _request.DeleteAsync($"Comment/Delete/{_commentId}");
+
+        Assert.That(response.Status, Is.EqualTo(204));
+        Assert.That(response.StatusText, Is.EqualTo("No Content"));
+
+        _isCommentAlreadyDeleted = true;
+    }
+
+    [Test]
+    public async Task DeleteComment_ShouldReturnError_WhenCommentNotFound()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        await _request.DeleteAsync($"Comment/Delete/{_commentId}");
+        
+        var response = await _request.DeleteAsync($"Comment/Delete/{_commentId}");
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Komentar nije pronađen."));
+        
+        _isCommentAlreadyDeleted = true;
+    }
+    
+    [Test]
+    public async Task DeleteComment_ShouldReturnError_WhenTokenIsNotValid()
+    {
+        var headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {_commentAuthorToken} not-valid" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.DeleteAsync($"Comment/Delete/{_commentId}");
+        Assert.That(response.Status, Is.EqualTo(401));
+        Assert.That(response.StatusText, Is.EqualTo("Unauthorized"));
+    }
+
+    #endregion
 
     [TearDown]
     public async Task TearDown()
     {
+        if (_isCommentAlreadyDeleted)
+            return;
+        
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
