@@ -390,7 +390,7 @@ public class EstateControllerTests : PlaywrightTest
     // }
 
     [TearDown]
-    public async Task OneTimeTearDown()
+    public async Task TearDown()
     {
         var headers = new Dictionary<string, string>()
         {
@@ -433,7 +433,7 @@ public class EstateControllerTests : PlaywrightTest
     [OneTimeTearDown]
     public async Task Cleanup()
     {
-                var headers = new Dictionary<string, string>()
+        var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
             { "Authorization", $"Bearer {_estateAuthorToken}" }

@@ -43,7 +43,7 @@ public class UserControllerTests : PlaywrightTest
             DataObject = new
             {
                 Username = Guid.NewGuid().ToString("N"),
-                Email = $"{Guid.NewGuid():N}@gmail12.com",
+                Email = $"{Guid.NewGuid():N}@gmail.com",
                 Password = "P@ssword123",
                 PhoneNumber = "065 123 1212"
             }
@@ -1007,7 +1007,7 @@ public class UserControllerTests : PlaywrightTest
             var deleteEstateAuthorResponse = await _request.DeleteAsync($"User/Delete");
             if (deleteEstateAuthorResponse.Status != 204)
             {
-                throw new Exception($"$Greška pri brisanju test korisnika: {deleteEstateAuthorResponse.Status}");
+                throw new Exception($"Greška pri brisanju test korisnika: {deleteEstateAuthorResponse.Status}");
             }
 
             headers = new Dictionary<string, string>()
