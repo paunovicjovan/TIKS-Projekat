@@ -1,6 +1,4 @@
-﻿using System.Text.Json;
-
-namespace PlaywrightTests.APITests;
+﻿namespace PlaywrightTests.APITests;
 
 [TestFixture]
 public class CommentControllerTests : PlaywrightTest
@@ -167,12 +165,12 @@ public class CommentControllerTests : PlaywrightTest
             Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
         }
 
-        var authResponse = await response.JsonAsync();
+        var commentResponse = await response.JsonAsync();
 
-        if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
-            (authResponse?.TryGetProperty("content", out var content) ?? false) &&
-            (authResponse?.TryGetProperty("createdAt", out var createdAt) ?? false) &&
-            (authResponse?.TryGetProperty("author", out var author) ?? false))
+        if ((commentResponse?.TryGetProperty("id", out var id) ?? false) &&
+            (commentResponse?.TryGetProperty("content", out var content) ?? false) &&
+            (commentResponse?.TryGetProperty("createdAt", out var createdAt) ?? false) &&
+            (commentResponse?.TryGetProperty("author", out var author) ?? false))
         {
             Assert.Multiple(() =>
             {
