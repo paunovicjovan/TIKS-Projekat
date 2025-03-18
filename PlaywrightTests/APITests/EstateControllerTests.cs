@@ -64,7 +64,8 @@ public class EstateControllerTests : PlaywrightTest
         {
             _estateAuthorToken = token.GetString() ?? string.Empty;
         }
-
+ 
+        // kreiranje test nekretnine
         var estateData = new
         {
             Title = "Luksuzna vila",
@@ -209,23 +210,8 @@ public class EstateControllerTests : PlaywrightTest
     {
         if (_request is null)
         {
-            throw new Exception("Greška u kontekstu.");
-        }
-
-        var response = await _request.PostAsync("User/Login", new APIRequestContextOptions()
-        {
-            DataObject = new
-            {
-                Email = _email,
-                Password = _password,
-            }
-        });
-
-        await Expect(response).ToBeOKAsync();
-
-        if (response.Status != 200)
-        {
-            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+            Assert.Fail("Greška u kontekstu.");
+            return;
         }
 
         var estateData = new
@@ -248,9 +234,9 @@ public class EstateControllerTests : PlaywrightTest
 
         var formData = _request.CreateFormData();
 
-        formData.Append("Title", estateData.Title.ToString());
-        formData.Append("Description", estateData.Description.ToString());
-        formData.Append("Price", estateData.Price.ToString());
+        formData.Append("Title", estateData.Title);
+        formData.Append("Description", estateData.Description);
+        formData.Append("Price", estateData.Price);
         formData.Append("SquareMeters", estateData.SquareMeters);
         formData.Append("TotalRooms", estateData.TotalRooms);
         formData.Append("Category", estateData.Category);
@@ -267,16 +253,31 @@ public class EstateControllerTests : PlaywrightTest
             });
         }
 
-        response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
+        var headers = new Dictionary<string, string>()
+        {
+            { "Authorization", $"Bearer {_userToken}" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
         {
             Multipart = formData
         });
 
-        var estateResponse = await response.JsonAsync();
+        await Expect(response).ToBeOKAsync();
 
-        Console.WriteLine("--------------------------------------------");
-        Console.WriteLine(estateResponse);
-        Console.WriteLine("--------------------------------------------");
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var estateResponse = await response.JsonAsync();
 
         if ((estateResponse?.TryGetProperty("Title", out var title) ?? false) &&
             (estateResponse?.TryGetProperty("Description", out var description) ?? false) &&
@@ -390,7 +391,7 @@ public class EstateControllerTests : PlaywrightTest
     // }
 
     [TearDown]
-    public async Task TearDown()
+    public async Task End()
     {
         var headers = new Dictionary<string, string>()
         {
@@ -408,25 +409,22 @@ public class EstateControllerTests : PlaywrightTest
         if (_request is null)
             throw new Exception("Greška u kontekstu.");
 
-        if (_request is not null)
+        try
         {
-            try
+            var deleteUserResponse = await _request.DeleteAsync($"User/Delete");
+            if (deleteUserResponse.Status != 204)
             {
-                var deleteUserResponse = await _request.DeleteAsync($"User/Delete");
-                if (deleteUserResponse.Status != 204)
-                {
-                    throw new Exception($"Greška pri brisanju test korisnika: {deleteUserResponse.Status}");
-                }
+                throw new Exception($"Greška pri brisanju test korisnika: {deleteUserResponse.Status}");
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
-            }
-            finally
-            {
-                await _request.DisposeAsync();
-                _request = null;
-            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
+        }
+        finally
+        {
+            await _request.DisposeAsync();
+            _request = null;
         }
     }
 
