@@ -205,6 +205,8 @@ public class EstateControllerTests : PlaywrightTest
         });
     }
 
+    #region CreateEstate
+
     [Test]
     public async Task CreateEstate_ShouldReturnEstate_WhenCreationIsSuccessful()
     {
@@ -386,6 +388,129 @@ public class EstateControllerTests : PlaywrightTest
         Assert.That(response.Status, Is.EqualTo(401));
         Assert.That(response.StatusText, Is.EqualTo("Unauthorized"));
     }
+
+    #endregion
+
+    #region GetAllEstates
+
+    [Test]
+    public async Task GetAllEstates_ShouldReturnAtLeastOneEstate_WhenEstatesExist()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.GetAsync("Estate/GetAll");
+
+        await Expect(response).ToBeOKAsync();
+
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var estatesArray = await response.JsonAsync();
+
+        if (estatesArray.HasValue && estatesArray.Value.ValueKind == JsonValueKind.Array)
+        {
+            Assert.That(estatesArray.Value.EnumerateArray().Count(), Is.AtLeast(1));
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetAllEstates_ShouldReturnCorrectEstate_WhenTitleIsProvided()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        string estateTitle = "Luksuzna vila";
+        var response = await _request.GetAsync($"Estate/GetAll?title={estateTitle}");
+
+        await Expect(response).ToBeOKAsync();
+
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var estatesArray = await response.JsonAsync();
+
+        if (estatesArray.HasValue && estatesArray.Value.ValueKind == JsonValueKind.Array)
+        {
+            var estates = estatesArray.Value.EnumerateArray().ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(estates.Count, Is.AtLeast(1), "Nema pronađenih nekretnina.");
+                Assert.That(estates.Any(e =>
+                    e.TryGetProperty("title", out var title) && title.GetString() == estateTitle),
+                    Is.True, "Nijedna pronađena nekretnina nema očekivani Title.");
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetAllEstates_ShouldReturnEmptyList_WhenNoEstatesExist()
+    {
+        // brisanje nekretnine da bi bila prazna lista
+        var headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {_estateAuthorToken}" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        if (_request is null)
+            throw new Exception("Greška u kontekstu.");
+
+        var deleteEstateResponse = await _request.DeleteAsync($"Estate/RemoveEstate/{_estateId}");
+        if (deleteEstateResponse.Status != 200)
+        {
+            throw new Exception($"Greška pri brisanju test nekretnine: {deleteEstateResponse.Status}");
+        }
+
+        // preuzimanje svih nekretnina (prazna lista)
+        var response = await _request.GetAsync("Estate/GetAll");
+
+        await Expect(response).ToBeOKAsync();
+
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var estatesArray = await response.JsonAsync();
+
+        if (estatesArray.HasValue && estatesArray.Value.ValueKind == JsonValueKind.Array)
+        {
+            Assert.That(estatesArray.Value.EnumerateArray().Count(), Is.EqualTo(0), "Lista nekretnina nije prazna kao što je očekivano.");
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    #endregion
 
     [TearDown]
     public async Task End()
