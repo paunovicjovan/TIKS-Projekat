@@ -530,7 +530,7 @@ public class PostControllerTests : PlaywrightTest
 
         var estateResponse = await response.JsonAsync();
 
-        string estateId = string.Empty;
+        string estateId;
         
         if (estateResponse?.TryGetProperty("id", out var estateIdElement) ?? false)
         {
@@ -590,12 +590,11 @@ public class PostControllerTests : PlaywrightTest
             return;
         }
         
-        // kreiranje test nekretnine
         var response = await CreateTestEstate();
 
         var estateResponse = await response.JsonAsync();
 
-        string estateId = string.Empty;
+        string estateId;
         
         if (estateResponse?.TryGetProperty("id", out var estateIdElement) ?? false)
         {
@@ -647,6 +646,159 @@ public class PostControllerTests : PlaywrightTest
 
         var message = await response.TextAsync();
         Assert.That(message, Is.EqualTo("Došlo je do greške prilikom preuzimanja objava."));
+    }
+
+    #endregion
+    
+    #region UpdatePost
+
+    [Test]
+    public async Task UpdatePost_ShouldReturnTrue_WhenUpdateIsSuccessful()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string newPostTitle = "Naslov objave 2";
+        const string newPostContent = "Sadrzaj objave 2";
+
+        var response = await _request.PutAsync($"Post/Update/{_postId}", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Title = newPostTitle,
+                Content = newPostContent
+            }
+        });
+
+        await Expect(response).ToBeOKAsync();
+        
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var isUpdateSuccessful = await response.JsonAsync<bool>();
+        
+        Assert.That(isUpdateSuccessful, Is.True);
+    }
+
+    [Test]
+    public async Task UpdatePost_ShouldReturnError_WhenPostDoesNotExist()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string newPostTitle = "Naslov objave 2";
+        const string newPostContent = "Sadrzaj objave 2";
+
+        const string nonExistingPostId = "ffffffffffffffffffffffff"; 
+
+        var response = await _request.PutAsync($"Post/Update/{nonExistingPostId}", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Title = newPostTitle,
+                Content = newPostContent
+            }
+        });
+        
+        Assert.That(response.Status, Is.EqualTo(404));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Objava sa datim ID-jem ne postoji."));
+    }
+
+    [Test]
+    public async Task UpdatePost_ShouldReturnError_WhenExceptionOccurs()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string newPostTitle = "Naslov objave 2";
+        const string newPostContent = "Sadrzaj objave 2";
+
+        const string nonExistingPostId = "invalid-object-id"; 
+
+        var response = await _request.PutAsync($"Post/Update/{nonExistingPostId}", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Title = newPostTitle,
+                Content = newPostContent
+            }
+        });
+        
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Došlo je do greške prilikom ažuriranja objave."));
+    }
+
+    #endregion
+    
+    #region DeletePost
+
+    [Test]
+    public async Task DeletePost_ShouldReturnTrue_WhenDeletionIsSuccessful()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        var response = await _request.DeleteAsync($"Post/Delete/{_postId}");
+
+        Assert.That(response.Status, Is.EqualTo(204));
+        Assert.That(response.StatusText, Is.EqualTo("No Content"));
+
+        _isPostAlreadyDeleted = true;
+    }
+
+    [Test]
+    public async Task DeletePost_ShouldReturnError_WhenPostDoesNotExist()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string nonExistingPostId = "ffffffffffffffffffffffff";
+        
+        var response = await _request.DeleteAsync($"Post/Delete/{nonExistingPostId}");
+        Assert.That(response.Status, Is.EqualTo(404));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Objava sa datim ID-jem ne postoji."));
+    }
+
+    [Test]
+    public async Task DeletePost_ShouldReturnError_WhenExceptionOccurs()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string notValidObjectId = "not-valid-object-id";
+        
+        var response = await _request.DeleteAsync($"Post/Delete/{notValidObjectId}");
+        
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Došlo je do greške prilikom brisanja objave."));
     }
 
     #endregion

@@ -546,9 +546,9 @@ public class CommentControllerTests : PlaywrightTest
             return;
         }
         
-        await _request.DeleteAsync($"Comment/Delete/{_commentId}");
+        const string nonExistingCommentId = "ffffffffffffffffffffffff";
         
-        var response = await _request.DeleteAsync($"Comment/Delete/{_commentId}");
+        var response = await _request.DeleteAsync($"Comment/Delete/{nonExistingCommentId}");
         Assert.That(response.Status, Is.EqualTo(400));
 
         var message = await response.TextAsync();
