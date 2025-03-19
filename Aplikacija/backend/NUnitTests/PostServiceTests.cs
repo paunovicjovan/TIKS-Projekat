@@ -15,7 +15,7 @@ public class PostServiceTests
     private Mock<ICommentService> _commentServiceMock;
     private Mock<IServiceProvider> _serviceProviderMock;
     private Mock<IPostAggregationRepository> _postAggregationRepositoryMock;
-    private PostService _postService;
+    private IPostService _postService;
 
     [SetUp]
     public void Setup()

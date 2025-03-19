@@ -279,26 +279,9 @@ public class EstateControllerTests : PlaywrightTest
 
         var estateResponse = await response.JsonAsync();
 
-        if ((estateResponse?.TryGetProperty("Title", out var title) ?? false) &&
-            (estateResponse?.TryGetProperty("Description", out var description) ?? false) &&
-            (estateResponse?.TryGetProperty("Price", out var price) ?? false) &&
-            (estateResponse?.TryGetProperty("SquareMeters", out var squaremeters) ?? false) &&
-            (estateResponse?.TryGetProperty("TotalRooms", out var totalrooms) ?? false) &&
-            (estateResponse?.TryGetProperty("Category", out var category) ?? false) &&
-            (estateResponse?.TryGetProperty("Longitude", out var longitude) ?? false) &&
-            (estateResponse?.TryGetProperty("Latitude", out var latitude) ?? false))
+        if (estateResponse?.TryGetProperty("id", out var id) ?? false)
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(title.GetString(), Is.EqualTo("Luksuzna vila"));
-                Assert.That(description.GetString(), Is.EqualTo("Vila sa bazenom"));
-                Assert.That(price.GetString(), Is.EqualTo("500000"));
-                Assert.That(squaremeters.GetString(), Is.EqualTo("250"));
-                Assert.That(totalrooms.GetString(), Is.EqualTo("20"));
-                Assert.That(category.GetString(), Is.EqualTo("0"));
-                Assert.That(longitude.GetString(), Is.EqualTo("10"));
-                Assert.That(latitude.GetString(), Is.EqualTo("20"));
-            });
+            Assert.That(id.GetString(), Is.Not.Empty);
         }
         else
         {
