@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
 
 namespace DataLayer.Models
@@ -11,6 +12,7 @@ namespace DataLayer.Models
         public required int TotalRooms { get; set; }
         public required EstateCategory Category { get; set; }
         public int? FloorNumber { get; set; }
+        [Required(ErrorMessage = "Nekretnina mora sadržati barem jednu sliku.")]
         public required IFormFile[] Images { get; set; }
         public double Longitude { get; set; }
         public double Latitude { get; set; }

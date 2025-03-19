@@ -64,7 +64,7 @@ public class EstateControllerTests : PlaywrightTest
         {
             _estateAuthorToken = token.GetString() ?? string.Empty;
         }
- 
+
         // kreiranje test nekretnine
         var estateData = new
         {
@@ -289,89 +289,103 @@ public class EstateControllerTests : PlaywrightTest
         }
     }
 
-    // [Test]
-    // public async Task CreateEstate_ShouldReturnError_WhenNoImagesAreProvided()
-    // {
-    //     if (_request is null)
-    //     {
-    //         throw new Exception("Greška u kontekstu.");
-    //     }
+    [Test]
+    public async Task CreateEstate_ShouldReturnError_WhenNoImagesProvided()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
 
-    //     var estateData = new
-    //     {
-    //         Title = "Luksuzna vila",
-    //         Description = "Vila sa bazenom",
-    //         Price = 500000,
-    //         SquareMeters = 250,
-    //         TotalRooms = 20,
-    //         Category = 0,
-    //         Longitude = 10.0,
-    //         Latitude = 20.0,
-    //         Images = new string[] { }
-    //     };
+        var estateData = new
+        {
+            Title = "Luksuzna vila",
+            Description = "Vila sa bazenom",
+            Price = 500000,
+            SquareMeters = 250,
+            TotalRooms = 20,
+            Category = 0,
+            Longitude = 10.0,
+            Latitude = 20.0,
+            Images = new string[] { }
+        };
 
-    //     var headers = new Dictionary<string, string>()
-    //     {
-    //         { "Authorization", $"Bearer {_estateAuthorToken}" }
-    //     };
+        var formData = _request.CreateFormData();
 
-    //     var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
-    //     {
-    //         DataObject = estateData,
-    //         Headers = headers
-    //     });
+        formData.Append("Title", estateData.Title);
+        formData.Append("Description", estateData.Description);
+        formData.Append("Price", estateData.Price);
+        formData.Append("SquareMeters", estateData.SquareMeters);
+        formData.Append("TotalRooms", estateData.TotalRooms);
+        formData.Append("Category", estateData.Category);
+        formData.Append("Longitude", estateData.Longitude.ToString(CultureInfo.InvariantCulture));
+        formData.Append("Latitude", estateData.Latitude.ToString(CultureInfo.InvariantCulture));
 
-    //     Assert.That(response.Status, Is.EqualTo(400));
+        var headers = new Dictionary<string, string>()
+        {
+            { "Authorization", $"Bearer {_userToken}" }
+        };
 
-    //     var responseBody = await response.JsonAsync();
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
 
-    //     if (responseBody?.TryGetProperty("detail", out var detail) ?? false)
-    //     {
-    //         Assert.That(detail.GetString(), Is.EqualTo("Nekretnina mora sadržati barem jednu sliku."));
-    //     }
-    // }
+        var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
+        {
+            Multipart = formData
+        });
 
-    // [Test]
-    // public async Task CreateEstate_ShouldReturnError_WhenImageSavingFails()
-    // {
-    //     if (_request is null)
-    //     {
-    //         throw new Exception("Greška u kontekstu.");
-    //     }
+        Assert.That(response.Status, Is.EqualTo(400));
+        var message = await response.JsonAsync();
+        var errors = message?.GetProperty("errors").GetProperty("Images").EnumerateArray().FirstOrDefault();
+        var errorMessage = errors?.ToString();
+        Assert.That(errorMessage, Is.EqualTo("Nekretnina mora sadržati barem jednu sliku."));
+    }
 
-    //     var estateData = new
-    //     {
-    //         Title = "Luksuzna vila",
-    //         Description = "Vila sa bazenom",
-    //         Price = 500000,
-    //         SquareMeters = 250,
-    //         TotalRooms = 20,
-    //         Category = 0,
-    //         Longitude = 10.0,
-    //         Latitude = 20.0,
-    //         Images = new string[] { "invalid_image_format.txt" }
-    //     };
+    [Test]
+    public async Task CreateEstate_ShouldReturnError_WhenTokenIsInvalid()
+    {
+        var headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {_userToken} not-valid" }
+        };
 
-    //     var headers = new Dictionary<string, string>()
-    //     {
-    //         { "Authorization", $"Bearer {_estateAuthorToken}" }
-    //     };
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
 
-    //     var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
-    //     {
-    //         DataObject = estateData,
-    //         Headers = headers
-    //     });
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
 
-    //     Assert.That(response.Status, Is.EqualTo(400));
+        var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
+        {
+            DataObject = new
+            {
+                Title = "Luksuzna vila",
+                Description = "Vila sa bazenom",
+                Price = 500000,
+                SquareMeters = 250,
+                TotalRooms = 20,
+                Category = 0,
+                Longitude = 10.0,
+                Latitude = 20.0
+            }
+        });
 
-    //     var responseBody = await response.JsonAsync();
-
-    //     if (responseBody?.TryGetProperty("detail", out var detail) ?? false)
-    //     {
-    //         Assert.That(detail.GetString(), Is.EqualTo("Došlo je do greške prilikom kreiranja nekretnine."));
-    //     }
-    // }
+        Assert.That(response.Status, Is.EqualTo(401));
+        Assert.That(response.StatusText, Is.EqualTo("Unauthorized"));
+    }
 
     [TearDown]
     public async Task End()
@@ -445,7 +459,7 @@ public class EstateControllerTests : PlaywrightTest
             if (deleteEstateAuthorResponse.Status != 204)
             {
                 throw new Exception($"$Greška pri brisanju test korisnika: {deleteEstateAuthorResponse.Status}");
-            }         
+            }
         }
         catch (Exception ex)
         {
@@ -455,6 +469,6 @@ public class EstateControllerTests : PlaywrightTest
         {
             await _request.DisposeAsync();
             _request = null;
-        }     
+        }
     }
 }
