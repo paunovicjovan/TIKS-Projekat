@@ -10,6 +10,7 @@ public class PostControllerTests : PlaywrightTest
     private readonly string _testPostTitle = "Test Post Title";
     private readonly string _testPostContent = "Test Post Content";
     private bool _isPostAlreadyDeleted;
+    private List<string> _userTokensToDelete = [];
     
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
@@ -61,6 +62,7 @@ public class PostControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("role", out var role) ?? false))
         {
             _userToken = token.GetString() ?? string.Empty;
+            _userTokensToDelete.Add(_userToken);
         }
 
         response = await CreateTestEstate();
@@ -802,6 +804,226 @@ public class PostControllerTests : PlaywrightTest
     }
 
     #endregion
+
+    #region GetUserPosts
+
+    [Test]
+    [TestCase(1, 2, 2, 5)]
+    [TestCase(2, 2, 2, 5)]
+    [TestCase(3, 2, 1, 5)]
+    [TestCase(4, 2, 0, 5)]
+    public async Task GetUserPosts_ShouldReturnCorrectPaginatedPosts_WhenParamsAreValid(int page, int pageSize,
+        int expectedCount, int totalPostsCount)
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        // kreiranje novog korisnika
+        var response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Username = Guid.NewGuid().ToString("N"),
+                Email = $"{Guid.NewGuid():N}@gmail.com",
+                Password = "P@ssword123",
+                PhoneNumber = "065 123 1212"
+            }
+        });
+
+        if (response.Status != 200)
+        {
+            throw new Exception(
+                $"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
+        }
+
+        var authResponse = await response.JsonAsync();
+
+        string userId = string.Empty;
+        string userToken = string.Empty;
+        
+        if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
+            (authResponse?.TryGetProperty("token", out var token) ?? false))
+        {
+            userId = id.GetString() ?? string.Empty;
+            userToken = token.GetString() ?? string.Empty;
+            _userTokensToDelete.Add(userToken);
+        }
+        
+        // dodavanje objava korisniku
+        var headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {userToken}" }
+        };
+        
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        for (int i = 0; i < totalPostsCount; i++)
+        {
+            await _request.PostAsync("Post/Create", new APIRequestContextOptions
+            {
+                DataObject = new
+                {
+                    Title = $"Naslov objave {i+1}",
+                    Content = $"Sadrzaj objave {i+1}",
+                    EstateId = (string?) null
+                }
+            });
+        }
+        
+        response = await _request.GetAsync($"Post/GetUserPosts/{userId}?page={page}&pageSize={pageSize}");
+        
+        await Expect(response).ToBeOKAsync();
+        
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var paginatedPosts = await response.JsonAsync();
+        
+        if ((paginatedPosts?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedPosts?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(totalPostsCount));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(expectedCount));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetUserPosts_ShouldReturnEmptyList_WhenNoPostsExist()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        // kreiranje novog korisnika
+        var response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Username = Guid.NewGuid().ToString("N"),
+                Email = $"{Guid.NewGuid():N}@gmail.com",
+                Password = "P@ssword123",
+                PhoneNumber = "065 123 1212"
+            }
+        });
+
+        if (response.Status != 200)
+        {
+            throw new Exception(
+                $"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
+        }
+
+        var authResponse = await response.JsonAsync();
+
+        string userId = string.Empty;
+        
+        if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
+            (authResponse?.TryGetProperty("token", out var token) ?? false))
+        {
+            userId = id.GetString() ?? string.Empty;
+            _userTokensToDelete.Add(token.GetString() ?? string.Empty);
+        }
+        
+        response = await _request.GetAsync($"Post/GetUserPosts/{userId}");
+        
+        await Expect(response).ToBeOKAsync();
+        
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var paginatedPosts = await response.JsonAsync();
+        
+        if ((paginatedPosts?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedPosts?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(0));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(0));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetUserPosts_ShouldReturnError_WhenPaginationParamsAreInvalid()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        // kreiranje novog korisnika
+        var response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Username = Guid.NewGuid().ToString("N"),
+                Email = $"{Guid.NewGuid():N}@gmail.com",
+                Password = "P@ssword123",
+                PhoneNumber = "065 123 1212"
+            }
+        });
+
+        if (response.Status != 200)
+        {
+            throw new Exception(
+                $"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
+        }
+
+        var authResponse = await response.JsonAsync();
+
+        string userId = string.Empty;
+        string userToken = string.Empty;
+        
+        if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
+            (authResponse?.TryGetProperty("token", out var token) ?? false))
+        {
+            userId = id.GetString() ?? string.Empty;
+            userToken = token.GetString() ?? string.Empty;
+            _userTokensToDelete.Add(userToken);
+        }
+        
+        response = await _request.GetAsync($"Post/GetUserPosts/{userId}?page={-1}&pageSize={-1}");
+        
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Došlo je do greške prilikom preuzimanja objava."));
+    }
+
+    #endregion
     
     [TearDown]
     public async Task TearDown()
@@ -847,31 +1069,34 @@ public class PostControllerTests : PlaywrightTest
     [OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
-        // brisanje test korisnika (sa njim i nekretnina)
-        var headers = new Dictionary<string, string>()
-        {
-            { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_userToken}" }
-        };
-
-        var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-
-        _request = await playwright.APIRequest.NewContextAsync(new()
-        {
-            BaseURL = "http://localhost:5244/api/",
-            ExtraHTTPHeaders = headers,
-            IgnoreHTTPSErrors = true
-        });
-
-        if (_request is null)
-            throw new Exception("Greška u kontekstu.");
-
+        // brisanje test korisnika (sa njima i svi povezani podaci: nekretnine, postovi...)
         try
         {
-            var deletePostAuthorResponse = await _request.DeleteAsync("User/Delete");
-            if (deletePostAuthorResponse.Status != 204)
+            var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+            
+            foreach (var userToken in _userTokensToDelete)   
             {
-                throw new Exception($"Greška pri brisanju test korisnika: {deletePostAuthorResponse.Status}");
+                var headers = new Dictionary<string, string>()
+                {
+                    { "Content-Type", "application/json" },
+                    { "Authorization", $"Bearer {userToken}" }
+                };
+                
+                _request = await playwright.APIRequest.NewContextAsync(new()
+                {
+                    BaseURL = "http://localhost:5244/api/",
+                    ExtraHTTPHeaders = headers,
+                    IgnoreHTTPSErrors = true
+                });
+
+                if (_request is null)
+                    throw new Exception("Greška u kontekstu.");
+                
+                var deletePostAuthorResponse = await _request.DeleteAsync("User/Delete");
+                if (deletePostAuthorResponse.Status != 204)
+                {
+                    throw new Exception($"Greška pri brisanju test korisnika: {deletePostAuthorResponse.Status}");
+                }
             }
         }
         catch (Exception ex)
@@ -880,8 +1105,11 @@ public class PostControllerTests : PlaywrightTest
         }
         finally
         {
-            await _request.DisposeAsync();
-            _request = null;
+            if (_request is not null)
+            {
+                await _request.DisposeAsync();
+                _request = null;
+            }
         }
     }
 }

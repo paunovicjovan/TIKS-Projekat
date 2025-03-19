@@ -1012,8 +1012,8 @@ public class PostServiceTests
     #endregion
 
     #region GetUserPosts
-
-      [Test]
+    
+    [Test]
     [TestCase(1, 2, 2, 5)]
     [TestCase(2, 2, 2, 5)]
     [TestCase(3, 2, 1, 5)]
