@@ -37,18 +37,6 @@ public class EstateController : ControllerBase
         return Ok(new { id = response!.Id });
     }
 
-    [HttpGet("GetAll")]
-    public async Task<IActionResult> GetAll()
-    {
-        (bool isError, var response, ErrorMessage? error) = await estateService.GetAllEstatesFromCollection();
-        if (isError)
-        {
-            return StatusCode(error?.StatusCode ?? 400, error?.Message);
-        }
-
-        return Ok(response);
-    }
-
     [HttpGet("GetEstate/{id}")]
     public async Task<IActionResult> GetEstate(string id)
     {

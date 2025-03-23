@@ -2,7 +2,6 @@
 
 public interface IEstateService
 {
-    public Task<Result<List<Estate>, ErrorMessage>> GetAllEstatesFromCollection();
     public Task<Result<EstateResultDTO, ErrorMessage>> GetEstate(string id);
     public Task<Result<Estate, ErrorMessage>> CreateEstate(EstateCreateDTO newEstateDto, string userId);
     public Task<Result<Estate, ErrorMessage>> UpdateEstate(string id, EstateUpdateDTO updatedEstate);

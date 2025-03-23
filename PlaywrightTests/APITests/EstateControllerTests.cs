@@ -4,18 +4,16 @@ namespace PlaywrightTests.APITests;
 public class EstateControllerTests : PlaywrightTest
 {
     private IAPIRequestContext? _request;
-    private string _userId = string.Empty;
+    private string _user1Token = string.Empty;
+    private string _user2Token = string.Empty;
+    private string _user3Token = string.Empty;
+    private List<string> _favoriteEstateIds = [];
     private string _estateId = string.Empty;
-    private string _userToken = string.Empty;
-    private string _estateAuthorToken = string.Empty;
-    private string _username = Guid.NewGuid().ToString("N");
-    private string _email = $"{Guid.NewGuid():N}@gmail.com";
-    private readonly string _password = "@Petar123";
-    private readonly string _phoneNumber = "065 123 1212";
 
     [OneTimeSetUp]
     public async Task CreateTestUserAndEstate()
     {
+        //kreiranje prvog korisnika
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
@@ -35,7 +33,6 @@ public class EstateControllerTests : PlaywrightTest
             throw new Exception("Greška u kontekstu.");
         }
 
-        //kreiranje test korisnika koji poseduje nekretninu
         var response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
         {
             DataObject = new
@@ -62,52 +59,13 @@ public class EstateControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("token", out var token) ?? false) &&
             (authResponse?.TryGetProperty("role", out var role) ?? false))
         {
-            _estateAuthorToken = token.GetString() ?? string.Empty;
+            _user1Token = token.GetString() ?? string.Empty;
         }
 
-        // kreiranje test nekretnine
-        var estateData = new
-        {
-            Title = "Luksuzna vila",
-            Description = "Vila sa bazenom",
-            Price = 500000,
-            SquareMeters = 250,
-            TotalRooms = 20,
-            Category = 0,
-            Longitude = 10.0,
-            Latitude = 20.0,
-            Images = new[]
-            {
-                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image1.jpg"),
-                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image2.jpg"),
-                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image3.jpg")
-            }
-        };
-
-        var formData = _request.CreateFormData();
-
-        formData.Append("Title", estateData.Title);
-        formData.Append("Description", estateData.Description);
-        formData.Append("Price", estateData.Price);
-        formData.Append("SquareMeters", estateData.SquareMeters);
-        formData.Append("TotalRooms", estateData.TotalRooms);
-        formData.Append("Category", estateData.Category);
-        formData.Append("Longitude", estateData.Longitude.ToString(CultureInfo.InvariantCulture));
-        formData.Append("Latitude", estateData.Latitude.ToString(CultureInfo.InvariantCulture));
-
-        for (var i = 0; i < estateData.Images.Length; i++)
-        {
-            formData.Append("Images", new FilePayload()
-            {
-                Name = $"image{i}.jpg",
-                MimeType = "image/jpeg",
-                Buffer = await File.ReadAllBytesAsync(estateData.Images[i])
-            });
-        }
-
+        // kreiranje drugog korisnika koji ce da poseduje 5 nekretnina
         headers = new Dictionary<string, string>()
         {
-            { "Authorization", $"Bearer {_estateAuthorToken}" }
+            { "Content-Type", "application/json" },
         };
 
         _request = await playwright.APIRequest.NewContextAsync(new()
@@ -117,20 +75,187 @@ public class EstateControllerTests : PlaywrightTest
             IgnoreHTTPSErrors = true
         });
 
-        response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
+        if (_request is null)
         {
-            Multipart = formData
+            throw new Exception("Greška u kontekstu.");
+        }
+
+        response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Username = Guid.NewGuid().ToString("N"),
+                Email = $"{Guid.NewGuid():N}@gmail12.com",
+                Password = "P@ssword223",
+                PhoneNumber = "065 123 2212"
+            }
         });
 
-        var estateResponse = await response.JsonAsync();
-
-        if (estateResponse?.TryGetProperty("id", out var estateId) ?? false)
+        if (response.Status != 200)
         {
-            _estateId = estateId.GetString()!;
+            throw new Exception(
+                $"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
         }
-        else
+
+        authResponse = await response.JsonAsync();
+
+        if ((authResponse?.TryGetProperty("id", out id) ?? false) &&
+            (authResponse?.TryGetProperty("username", out username) ?? false) &&
+            (authResponse?.TryGetProperty("email", out email) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out phoneNumber) ?? false) &&
+            (authResponse?.TryGetProperty("token", out token) ?? false) &&
+            (authResponse?.TryGetProperty("role", out role) ?? false))
         {
-            throw new Exception("Došlo je do greške pri kreiranju test podataka. Server nije vratio ID nekretnine.");
+            _user2Token = token.GetString() ?? string.Empty;
+        }
+
+        // kreiranje nekretnina
+        for (int j = 0; j < 5; j++)
+        {
+            var estateData = new
+            {
+                Title = $"Luksuzna vila {j}",
+                Description = $"Vila sa bazenom {j}",
+                Price = 500000 + (j * 10000),
+                SquareMeters = 250 + (j * 10),
+                TotalRooms = 20 + j,
+                Category = 0,
+                Longitude = 10.0 + j,
+                Latitude = 20.0 + j,
+                Images = new[]
+                {
+                    Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image1.jpg"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image2.jpg"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image3.jpg")
+                }
+            };
+
+            var formData = _request.CreateFormData();
+
+            formData.Append("Title", estateData.Title);
+            formData.Append("Description", estateData.Description);
+            formData.Append("Price", estateData.Price);
+            formData.Append("SquareMeters", estateData.SquareMeters);
+            formData.Append("TotalRooms", estateData.TotalRooms);
+            formData.Append("Category", estateData.Category);
+            formData.Append("Longitude", estateData.Longitude.ToString(CultureInfo.InvariantCulture));
+            formData.Append("Latitude", estateData.Latitude.ToString(CultureInfo.InvariantCulture));
+
+            for (var i = 0; i < estateData.Images.Length; i++)
+            {
+                formData.Append("Images", new FilePayload()
+                {
+                    Name = $"image{i}.jpg",
+                    MimeType = "image/jpeg",
+                    Buffer = await File.ReadAllBytesAsync(estateData.Images[i])
+                });
+            }
+
+            headers = new Dictionary<string, string>()
+            {
+                { "Authorization", $"Bearer {_user2Token}" }
+            };
+
+            _request = await playwright.APIRequest.NewContextAsync(new()
+            {
+                BaseURL = "http://localhost:5244/api/",
+                ExtraHTTPHeaders = headers,
+                IgnoreHTTPSErrors = true
+            });
+
+            response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
+            {
+                Multipart = formData
+            });
+
+            var estateResponse = await response.JsonAsync();
+
+            if (estateResponse?.TryGetProperty("id", out var estateId) ?? false)
+            {
+                Console.WriteLine($"Nekretnina {j} kreirana sa ID: {estateId.GetString()}");
+
+                if (j < 3)
+                    _favoriteEstateIds.Add(estateId.GetString()!);
+            }
+            else
+            {
+                throw new Exception($"Greška pri kreiranju nekretnine {j}. Server nije vratio ID.");
+            }
+        }
+
+        // dodavanje omiljenih nekretnina prvom korisniku
+        headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {_user1Token}" }
+        };
+
+        _request = await playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        foreach (var estateId in _favoriteEstateIds)
+        {
+            response = await _request.PostAsync($"User/AddToFavorites/{estateId}");
+
+            if (response.Status == 200)
+            {
+                Console.WriteLine($"Nekretnina {estateId} dodata u omiljene prvom korisniku.");
+            }
+            else
+            {
+                Console.WriteLine($"Greška pri dodavanju nekretnine {estateId} u omiljene.");
+            }
+        }
+
+        // kreiranje treceg korisnika
+        headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+        };
+
+        _request = await playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        if (_request is null)
+        {
+            throw new Exception("Greška u kontekstu.");
+        }
+
+        response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
+        {
+            DataObject = new
+            {
+                Username = Guid.NewGuid().ToString("N"),
+                Email = $"{Guid.NewGuid():N}@gmail12.com",
+                Password = "P@ssword323",
+                PhoneNumber = "065 123 3212"
+            }
+        });
+
+        if (response.Status != 200)
+        {
+            throw new Exception(
+                $"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
+        }
+
+        authResponse = await response.JsonAsync();
+
+        if ((authResponse?.TryGetProperty("id", out id) ?? false) &&
+            (authResponse?.TryGetProperty("username", out username) ?? false) &&
+            (authResponse?.TryGetProperty("email", out email) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out phoneNumber) ?? false) &&
+            (authResponse?.TryGetProperty("token", out token) ?? false) &&
+            (authResponse?.TryGetProperty("role", out role) ?? false))
+        {
+            _user3Token = token.GetString() ?? string.Empty;
         }
     }
 
@@ -139,7 +264,7 @@ public class EstateControllerTests : PlaywrightTest
     {
         var headers = new Dictionary<string, string>()
         {
-            { "Content-Type", "application/json" }
+            { "Authorization", $"Bearer {_user1Token}" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -154,78 +279,16 @@ public class EstateControllerTests : PlaywrightTest
             throw new Exception("Greška u kontekstu.");
         }
 
-        _username = Guid.NewGuid().ToString("N");
-        _email = $"{Guid.NewGuid():N}@gmail.com";
-
-        var response = await _request.PostAsync("User/Register", new APIRequestContextOptions()
-        {
-            DataObject = new
-            {
-                Username = _username,
-                Email = _email,
-                Password = _password,
-                PhoneNumber = _phoneNumber
-            }
-        });
-
-        if (response.Status != 200)
-        {
-            throw new Exception(
-                $"Došlo je do greške pri kreiranju test korisnika: {response.Status} - {response.StatusText}");
-        }
-
-        var authResponse = await response.JsonAsync();
-
-        if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
-            (authResponse?.TryGetProperty("username", out var username) ?? false) &&
-            (authResponse?.TryGetProperty("email", out var email) ?? false) &&
-            (authResponse?.TryGetProperty("phoneNumber", out var phoneNumber) ?? false) &&
-            (authResponse?.TryGetProperty("token", out var token) ?? false) &&
-            (authResponse?.TryGetProperty("role", out var role) ?? false))
-        {
-            _userId = id.GetString() ?? string.Empty;
-            _userToken = token.GetString() ?? string.Empty;
-        }
-        else
-        {
-            throw new Exception("Nisu pronađeni svi potrebni podaci u odgovoru pri kreiranju test korisnika.");
-        }
-
-        headers = new Dictionary<string, string>()
-        {
-            { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_userToken}" }
-        };
-
-        _request = await Playwright.APIRequest.NewContextAsync(new()
-        {
-            BaseURL = "http://localhost:5244/api/",
-            ExtraHTTPHeaders = headers,
-            IgnoreHTTPSErrors = true
-        });
-    }
-
-    #region CreateEstate
-
-    [Test]
-    public async Task CreateEstate_ShouldReturnEstate_WhenCreationIsSuccessful()
-    {
-        if (_request is null)
-        {
-            Assert.Fail("Greška u kontekstu.");
-            return;
-        }
-
         var estateData = new
         {
-            Title = "Luksuzna vila",
-            Description = "Vila sa bazenom",
-            Price = 500000,
-            SquareMeters = 250,
-            TotalRooms = 20,
+            Title = $"Luksuzna vila 123",
+            Description = $"Vila sa bazenom 123",
+            Price = 400000,
+            SquareMeters = 200,
+            TotalRooms = 15,
             Category = 0,
-            Longitude = 10.0,
-            Latitude = 20.0,
+            Longitude = 30,
+            Latitude = 35,
             Images = new[]
             {
                 Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image1.jpg"),
@@ -255,9 +318,31 @@ public class EstateControllerTests : PlaywrightTest
             });
         }
 
+        var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
+        {
+            Multipart = formData
+        });
+
+        var estateResponse = await response.JsonAsync();
+
+        if (estateResponse?.TryGetProperty("id", out var estateId) ?? false)
+        {
+            _estateId = estateId.GetString()!;
+        }
+        else
+        {
+            throw new Exception($"Greška pri kreiranju nekretnine. Server nije vratio ID.");
+        }
+    }
+
+    #region CreateEstate
+
+    [Test]
+    public async Task CreateEstate_ShouldReturnEstate_WhenCreationIsSuccessful()
+    {
         var headers = new Dictionary<string, string>()
         {
-            { "Authorization", $"Bearer {_userToken}" }
+            { "Authorization", $"Bearer {_user1Token}" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -266,6 +351,51 @@ public class EstateControllerTests : PlaywrightTest
             ExtraHTTPHeaders = headers,
             IgnoreHTTPSErrors = true
         });
+
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var estateData = new
+        {
+            Title = "Luksuzna vila 345",
+            Description = "Vila sa bazenom 345",
+            Price = 400000,
+            SquareMeters = 450,
+            TotalRooms = 40,
+            Category = 0,
+            Longitude = 40.0,
+            Latitude = 44.0,
+            Images = new[]
+            {
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image1.jpg"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image2.jpg"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "TestImages", "image3.jpg")
+            }
+        };
+
+        var formData = _request.CreateFormData();
+
+        formData.Append("Title", estateData.Title);
+        formData.Append("Description", estateData.Description);
+        formData.Append("Price", estateData.Price);
+        formData.Append("SquareMeters", estateData.SquareMeters);
+        formData.Append("TotalRooms", estateData.TotalRooms);
+        formData.Append("Category", estateData.Category);
+        formData.Append("Longitude", estateData.Longitude.ToString(CultureInfo.InvariantCulture));
+        formData.Append("Latitude", estateData.Latitude.ToString(CultureInfo.InvariantCulture));
+
+        for (var i = 0; i < estateData.Images.Length; i++)
+        {
+            formData.Append("Images", new FilePayload()
+            {
+                Name = $"image{i}.jpg",
+                MimeType = "image/jpeg",
+                Buffer = await File.ReadAllBytesAsync(estateData.Images[i])
+            });
+        }
 
         var response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
         {
@@ -294,6 +424,18 @@ public class EstateControllerTests : PlaywrightTest
     [Test]
     public async Task CreateEstate_ShouldReturnError_WhenNoImagesProvided()
     {
+        var headers = new Dictionary<string, string>()
+        {
+            { "Authorization", $"Bearer {_user1Token}" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
         if (_request is null)
         {
             Assert.Fail("Greška u kontekstu.");
@@ -302,14 +444,14 @@ public class EstateControllerTests : PlaywrightTest
 
         var estateData = new
         {
-            Title = "Luksuzna vila",
-            Description = "Vila sa bazenom",
-            Price = 500000,
-            SquareMeters = 250,
-            TotalRooms = 20,
+            Title = "Luksuzna vila 678",
+            Description = "Vila sa bazenom 678",
+            Price = 400000,
+            SquareMeters = 450,
+            TotalRooms = 40,
             Category = 0,
-            Longitude = 10.0,
-            Latitude = 20.0,
+            Longitude = 40.0,
+            Latitude = 44.0,
             Images = new string[] { }
         };
 
@@ -324,11 +466,6 @@ public class EstateControllerTests : PlaywrightTest
         formData.Append("Longitude", estateData.Longitude.ToString(CultureInfo.InvariantCulture));
         formData.Append("Latitude", estateData.Latitude.ToString(CultureInfo.InvariantCulture));
 
-        var headers = new Dictionary<string, string>()
-        {
-            { "Authorization", $"Bearer {_userToken}" }
-        };
-
         _request = await Playwright.APIRequest.NewContextAsync(new()
         {
             BaseURL = "http://localhost:5244/api/",
@@ -342,6 +479,7 @@ public class EstateControllerTests : PlaywrightTest
         });
 
         Assert.That(response.Status, Is.EqualTo(400));
+
         var message = await response.JsonAsync();
         var errors = message?.GetProperty("errors").GetProperty("Images").EnumerateArray().FirstOrDefault();
         var errorMessage = errors?.ToString();
@@ -353,8 +491,7 @@ public class EstateControllerTests : PlaywrightTest
     {
         var headers = new Dictionary<string, string>()
         {
-            { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_userToken} not-valid" }
+            { "Authorization", $"Bearer {_user1Token} not-valid" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -374,8 +511,8 @@ public class EstateControllerTests : PlaywrightTest
         {
             DataObject = new
             {
-                Title = "Luksuzna vila",
-                Description = "Vila sa bazenom",
+                Title = "Luksuzna vila 555",
+                Description = "Vila sa bazenom 555",
                 Price = 500000,
                 SquareMeters = 250,
                 TotalRooms = 20,
@@ -391,85 +528,13 @@ public class EstateControllerTests : PlaywrightTest
 
     #endregion
 
-    #region GetAllEstates
-
-    [Test]
-    public async Task GetAllEstates_ShouldReturnAtLeastOneEstate_WhenEstatesExist()
+    [TearDown]
+    public async Task End()
     {
-        if (_request is null)
-        {
-            Assert.Fail("Greška u kontekstu.");
-            return;
-        }
-
-        var response = await _request.GetAsync("Estate/GetAll");
-
-        await Expect(response).ToBeOKAsync();
-
-        if (response.Status != 200)
-        {
-            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
-        }
-
-        var estatesArray = await response.JsonAsync();
-
-        if (estatesArray.HasValue && estatesArray.Value.ValueKind == JsonValueKind.Array)
-        {
-            Assert.That(estatesArray.Value.EnumerateArray().Count(), Is.AtLeast(1));
-        }
-        else
-        {
-            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
-        }
-    }
-
-    [Test]
-    public async Task GetAllEstates_ShouldReturnCorrectEstate_WhenTitleIsProvided()
-    {
-        if (_request is null)
-        {
-            Assert.Fail("Greška u kontekstu.");
-            return;
-        }
-
-        string estateTitle = "Luksuzna vila";
-        var response = await _request.GetAsync($"Estate/GetAll?title={estateTitle}");
-
-        await Expect(response).ToBeOKAsync();
-
-        if (response.Status != 200)
-        {
-            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
-        }
-
-        var estatesArray = await response.JsonAsync();
-
-        if (estatesArray.HasValue && estatesArray.Value.ValueKind == JsonValueKind.Array)
-        {
-            var estates = estatesArray.Value.EnumerateArray().ToList();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(estates.Count, Is.AtLeast(1), "Nema pronađenih nekretnina.");
-                Assert.That(estates.Any(e =>
-                    e.TryGetProperty("title", out var title) && title.GetString() == estateTitle),
-                    Is.True, "Nijedna pronađena nekretnina nema očekivani Title.");
-            });
-        }
-        else
-        {
-            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
-        }
-    }
-
-    [Test]
-    public async Task GetAllEstates_ShouldReturnEmptyList_WhenNoEstatesExist()
-    {
-        // brisanje nekretnine da bi bila prazna lista
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_estateAuthorToken}" }
+            { "Authorization", $"Bearer {_user1Token}" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -482,43 +547,33 @@ public class EstateControllerTests : PlaywrightTest
         if (_request is null)
             throw new Exception("Greška u kontekstu.");
 
-        var deleteEstateResponse = await _request.DeleteAsync($"Estate/RemoveEstate/{_estateId}");
-        if (deleteEstateResponse.Status != 200)
+        try
         {
-            throw new Exception($"Greška pri brisanju test nekretnine: {deleteEstateResponse.Status}");
+            var deleteEstateResponse = await _request.DeleteAsync($"Estate/RemoveEstate/{_estateId}");
+            if (deleteEstateResponse.Status != 200)
+            {
+                throw new Exception($"Greška pri brisanju nekretnine: {deleteEstateResponse.Status}");
+            }
         }
-
-        // preuzimanje svih nekretnina (prazna lista)
-        var response = await _request.GetAsync("Estate/GetAll");
-
-        await Expect(response).ToBeOKAsync();
-
-        if (response.Status != 200)
+        catch (Exception ex)
         {
-            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+            Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
         }
-
-        var estatesArray = await response.JsonAsync();
-
-        if (estatesArray.HasValue && estatesArray.Value.ValueKind == JsonValueKind.Array)
+        finally
         {
-            Assert.That(estatesArray.Value.EnumerateArray().Count(), Is.EqualTo(0), "Lista nekretnina nije prazna kao što je očekivano.");
-        }
-        else
-        {
-            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+            await _request.DisposeAsync();
+            _request = null;
         }
     }
 
-    #endregion
-
-    [TearDown]
-    public async Task End()
+    [OneTimeTearDown]
+    public async Task Cleanup()
     {
+        // brisanje prvog korisnika
         var headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_userToken}" }
+            { "Authorization", $"Bearer {_user1Token}" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -536,7 +591,7 @@ public class EstateControllerTests : PlaywrightTest
             var deleteUserResponse = await _request.DeleteAsync($"User/Delete");
             if (deleteUserResponse.Status != 204)
             {
-                throw new Exception($"Greška pri brisanju test korisnika: {deleteUserResponse.Status}");
+                throw new Exception($"Greška pri brisanju korisnika: {deleteUserResponse.Status}");
             }
         }
         catch (Exception ex)
@@ -548,15 +603,12 @@ public class EstateControllerTests : PlaywrightTest
             await _request.DisposeAsync();
             _request = null;
         }
-    }
 
-    [OneTimeTearDown]
-    public async Task Cleanup()
-    {
-        var headers = new Dictionary<string, string>()
+        // brisanje drugog korisnika
+        headers = new Dictionary<string, string>()
         {
             { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_estateAuthorToken}" }
+            { "Authorization", $"Bearer {_user2Token}" }
         };
 
         _request = await Playwright.APIRequest.NewContextAsync(new()
@@ -571,19 +623,45 @@ public class EstateControllerTests : PlaywrightTest
 
         try
         {
-            if (!string.IsNullOrEmpty(_estateId))
+            var deleteUserResponse = await _request.DeleteAsync($"User/Delete");
+            if (deleteUserResponse.Status != 204)
             {
-                var deleteEstateResponse = await _request.DeleteAsync($"Estate/RemoveEstate/{_estateId}");
-                if (deleteEstateResponse.Status != 200)
-                {
-                    throw new Exception($"Greška pri brisanju test nekretnine: {deleteEstateResponse.Status}");
-                }
+                throw new Exception($"Greška pri brisanju korisnika: {deleteUserResponse.Status}");
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
+        }
+        finally
+        {
+            await _request.DisposeAsync();
+            _request = null;
+        }
 
-            var deleteEstateAuthorResponse = await _request.DeleteAsync($"User/Delete");
-            if (deleteEstateAuthorResponse.Status != 204)
+        // brisanje treceg korisnika
+        headers = new Dictionary<string, string>()
+        {
+            { "Content-Type", "application/json" },
+            { "Authorization", $"Bearer {_user3Token}" }
+        };
+
+        _request = await Playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+
+        if (_request is null)
+            throw new Exception("Greška u kontekstu.");
+
+        try
+        {
+            var deleteUserResponse = await _request.DeleteAsync($"User/Delete");
+            if (deleteUserResponse.Status != 204)
             {
-                throw new Exception($"$Greška pri brisanju test korisnika: {deleteEstateAuthorResponse.Status}");
+                throw new Exception($"Greška pri brisanju korisnika: {deleteUserResponse.Status}");
             }
         }
         catch (Exception ex)

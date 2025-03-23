@@ -16,19 +16,6 @@ public class EstateService : IEstateService
         _postService = postService;
     }
 
-    public async Task<Result<List<Estate>, ErrorMessage>> GetAllEstatesFromCollection()
-    {
-        try
-        {
-            var estates = await _estatesCollection.Find(_ => true).ToListAsync();
-            return estates;
-        }
-        catch (Exception)
-        {
-            return "Došlo je do greške prilikom preuzimanja nekretnina.".ToError();
-        }
-    }
-
     public async Task<Result<EstateResultDTO, ErrorMessage>> GetEstate(string id)
     {
         try
