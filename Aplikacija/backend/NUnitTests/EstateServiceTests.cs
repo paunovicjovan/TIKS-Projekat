@@ -110,7 +110,7 @@ public class EstateServiceTests
         // Assert
         Assert.That(isError, Is.True);
         Assert.That(error, Is.Not.Null);
-        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.StatusCode, Is.EqualTo(404));
         Assert.That(error.Message, Is.EqualTo("Nije pronađena nekretnina."));
     }
 
@@ -172,6 +172,9 @@ public class EstateServiceTests
                 estate.Id = generatedEstateId;
             })
             .Returns(Task.CompletedTask);
+
+        _userServiceMock.Setup(service => service.AddEstateToUser(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
 
         const string userId = "456";
         // Act
@@ -491,6 +494,9 @@ public class EstateServiceTests
         _postServiceMock.Setup(x => x.DeletePost(It.IsAny<string>())).ReturnsAsync(true);
         _userServiceMock.Setup(x => x.RemoveFavoriteEstate(It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(true);
+        
+        _userServiceMock.Setup(service => service.RemoveEstateFromUser(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
 
         _estatesCollectionMock
             .Setup(x => x.DeleteOneAsync(It.IsAny<FilterDefinition<Estate>>(), It.IsAny<CancellationToken>()))
@@ -524,7 +530,7 @@ public class EstateServiceTests
         // Assert
         Assert.That(isError, Is.True);
         Assert.That(error, Is.Not.Null);
-        Assert.That(error.StatusCode, Is.EqualTo(400));
+        Assert.That(error.StatusCode, Is.EqualTo(404));
         Assert.That(error.Message, Is.EqualTo("Nije pronađena nekretnina."));
     }
 
