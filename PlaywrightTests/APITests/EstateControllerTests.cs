@@ -5,9 +5,12 @@ public class EstateControllerTests : PlaywrightTest
 {
     private IAPIRequestContext? _request;
     private string _user1Token = string.Empty;
+    private string _user1Id = string.Empty;
     private string _user2Token = string.Empty;
+    private string _user2Id = string.Empty;
     private string _user3Token = string.Empty;
-    private List<string> _favoriteEstateIds = [];
+    private string _user3Id = string.Empty;
+    private readonly List<string> _favoriteEstateIds = [];
     private string _estateId = string.Empty;
     private bool _isEstateAlreadyDeleted;
 
@@ -60,6 +63,7 @@ public class EstateControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("token", out var token) ?? false) &&
             (authResponse?.TryGetProperty("role", out var role) ?? false))
         {
+            _user1Id = id.GetString() ?? string.Empty;
             _user1Token = token.GetString() ?? string.Empty;
         }
 
@@ -107,9 +111,22 @@ public class EstateControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("token", out token) ?? false) &&
             (authResponse?.TryGetProperty("role", out role) ?? false))
         {
+            _user2Id = id.GetString() ?? string.Empty;
             _user2Token = token.GetString() ?? string.Empty;
         }
 
+        headers = new Dictionary<string, string>()
+        {
+            { "Authorization", $"Bearer {_user2Token}" }
+        };
+
+        _request = await playwright.APIRequest.NewContextAsync(new()
+        {
+            BaseURL = "http://localhost:5244/api/",
+            ExtraHTTPHeaders = headers,
+            IgnoreHTTPSErrors = true
+        });
+        
         // kreiranje nekretnina
         for (int j = 0; j < 5; j++)
         {
@@ -152,18 +169,6 @@ public class EstateControllerTests : PlaywrightTest
                 });
             }
 
-            headers = new Dictionary<string, string>()
-            {
-                { "Authorization", $"Bearer {_user2Token}" }
-            };
-
-            _request = await playwright.APIRequest.NewContextAsync(new()
-            {
-                BaseURL = "http://localhost:5244/api/",
-                ExtraHTTPHeaders = headers,
-                IgnoreHTTPSErrors = true
-            });
-
             response = await _request.PostAsync("Estate/CreateEstate", new APIRequestContextOptions
             {
                 Multipart = formData
@@ -174,9 +179,8 @@ public class EstateControllerTests : PlaywrightTest
             if (estateResponse?.TryGetProperty("id", out var estateId) ?? false)
             {
                 Console.WriteLine($"Nekretnina {j} kreirana sa ID: {estateId.GetString()}");
-
-                if (j < 3)
-                    _favoriteEstateIds.Add(estateId.GetString()!);
+                
+                _favoriteEstateIds.Add(estateId.GetString()!);
             }
             else
             {
@@ -256,6 +260,7 @@ public class EstateControllerTests : PlaywrightTest
             (authResponse?.TryGetProperty("token", out token) ?? false) &&
             (authResponse?.TryGetProperty("role", out role) ?? false))
         {
+            _user3Id = id.GetString() ?? string.Empty;
             _user3Token = token.GetString() ?? string.Empty;
         }
     }
@@ -846,6 +851,200 @@ public class EstateControllerTests : PlaywrightTest
 
         var message = await response.TextAsync();
         Assert.That(message, Is.EqualTo("Došlo je do greške prilikom brisanja nekretnine i povezanih podataka."));
+    }
+
+    #endregion
+    
+    #region GetEstatesCreatedByUser
+
+    [Test]
+    [TestCase(1, 2, 2, 5)]
+    [TestCase(2, 2, 2, 5)]
+    [TestCase(3, 2, 1, 5)]
+    [TestCase(4, 2, 0, 5)]
+    public async Task GetEstatesCreatedByUser_ShouldReturnCorrectPaginatedEstates_WhenParamsAreValid(
+        int page, int pageSize, int expectedCount, int totalEstatesCount)
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.GetAsync($"Estate/GetEstatesCreatedByUser/{_user2Id}?page={page}&pageSize={pageSize}");
+        
+        await Expect(response).ToBeOKAsync();
+        
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var paginatedPosts = await response.JsonAsync();
+        
+        if ((paginatedPosts?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedPosts?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(totalEstatesCount));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(expectedCount));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetEstatesCreatedByUser_ShouldReturnEmptyList_WhenNoEstatesExist()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.GetAsync($"Estate/GetEstatesCreatedByUser/{_user3Id}");
+        
+        await Expect(response).ToBeOKAsync();
+        
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var paginatedPosts = await response.JsonAsync();
+        
+        if ((paginatedPosts?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedPosts?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(0));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(0));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetEstatesCreatedByUser_ShouldReturnError_WhenExceptionOccurs()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string invalidUserId = "invalid-object-id";
+
+        var response = await _request.GetAsync($"Estate/GetEstatesCreatedByUser/{invalidUserId}");
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Došlo je do greške prilikom preuzimanja nekretnina."));
+    }
+
+    #endregion
+
+    #region GetUserFavoriteEstates
+
+    [Test]
+    [TestCase(1, 2, 2, 5)]
+    [TestCase(2, 2, 2, 5)]
+    [TestCase(3, 2, 1, 5)]
+    [TestCase(4, 2, 0, 5)]
+    public async Task GetUserFavoriteEstates_ShouldReturnCorrectPaginatedEstates_WhenParamsAreValid(
+        int page, int pageSize, int expectedCount, int totalEstatesCount)
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.GetAsync($"Estate/GetUserFavoriteEstates/{_user1Id}?page={page}&pageSize={pageSize}");
+        
+        await Expect(response).ToBeOKAsync();
+        
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var paginatedPosts = await response.JsonAsync();
+        
+        if ((paginatedPosts?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedPosts?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(totalEstatesCount));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(expectedCount));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetUserFavoriteEstates_ShouldReturnEmptyList_WhenUserHasNoFavoriteEstates()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        var response = await _request.GetAsync($"Estate/GetUserFavoriteEstates/{_user3Id}");
+        
+        await Expect(response).ToBeOKAsync();
+        
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var paginatedPosts = await response.JsonAsync();
+        
+        if ((paginatedPosts?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedPosts?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(0));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(0));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task GetUserFavoriteEstates_ShouldReturnError_WhenExceptionOccurs()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string invalidUserId = "invalid-object-id";
+
+        var response = await _request.GetAsync($"Estate/GetUserFavoriteEstates/{invalidUserId}");
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Došlo je do greške prilikom preuzimanja omiljenih nekretnina."));
     }
 
     #endregion

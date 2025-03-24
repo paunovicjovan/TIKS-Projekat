@@ -127,6 +127,7 @@ public class EstateController : ControllerBase
     {
         (bool isError, var response, ErrorMessage? error) =
             await estateService.GetUserFavoriteEstates(userId, page ?? 1, pageSize ?? 10);
+        
         if (isError)
         {
             return StatusCode(error?.StatusCode ?? 400, error?.Message);
