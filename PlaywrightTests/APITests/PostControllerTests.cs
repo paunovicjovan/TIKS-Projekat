@@ -728,9 +728,9 @@ public class PostControllerTests : PlaywrightTest
         const string newPostTitle = "Naslov objave 2";
         const string newPostContent = "Sadrzaj objave 2";
 
-        const string nonExistingPostId = "invalid-object-id"; 
+        const string invalidPostId = "invalid-object-id"; 
 
-        var response = await _request.PutAsync($"Post/Update/{nonExistingPostId}", new APIRequestContextOptions()
+        var response = await _request.PutAsync($"Post/Update/{invalidPostId}", new APIRequestContextOptions()
         {
             DataObject = new
             {

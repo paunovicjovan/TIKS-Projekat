@@ -22,7 +22,7 @@ public class EstateService : IEstateService
         {
             var estate = await _estatesCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
             if (estate == null)
-                return "Nije pronađena nekretnina.".ToError();
+                return "Nije pronađena nekretnina.".ToError(404);
 
             var userResult = await _userService.GetById(estate.UserId);
             if (userResult.IsError)
@@ -106,7 +106,7 @@ public class EstateService : IEstateService
             var existingEstate = await _estatesCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
             if (existingEstate == null)
             {
-                return "Nije pronađena nekretnina.".ToError();
+                return "Nije pronađena nekretnina.".ToError(404);
             }
 
             if (updatedEstate.Images != null && updatedEstate.Images.Any())
@@ -165,7 +165,7 @@ public class EstateService : IEstateService
             var existingEstate = await _estatesCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
             if (existingEstate == null)
             {
-                return "Nije pronađena nekretnina.".ToError();
+                return "Nije pronađena nekretnina.".ToError(404);
             }
 
             foreach (var postId in existingEstate.PostIds)
