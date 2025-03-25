@@ -1005,14 +1005,12 @@ public class PostControllerTests : PlaywrightTest
         var authResponse = await response.JsonAsync();
 
         string userId = string.Empty;
-        string userToken = string.Empty;
         
         if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
             (authResponse?.TryGetProperty("token", out var token) ?? false))
         {
             userId = id.GetString() ?? string.Empty;
-            userToken = token.GetString() ?? string.Empty;
-            _userTokensToDelete.Add(userToken);
+            _userTokensToDelete.Add(token.GetString() ?? string.Empty);
         }
         
         response = await _request.GetAsync($"Post/GetUserPosts/{userId}?page={-1}&pageSize={-1}");

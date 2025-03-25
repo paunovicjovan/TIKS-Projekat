@@ -952,6 +952,125 @@ public class EstateControllerTests : PlaywrightTest
 
     #endregion
 
+    #region SearchEstates
+    
+    [Test]
+    public async Task SearchEstates_ShouldReturnPaginatedResults_WhenFiltersAreValid()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+
+        const string titleFilter = "Luksuzna vila";
+        const int priceMinFilter = 0;
+        const int priceMaxFilter = int.MaxValue;
+        const string categoryFilter = "House";
+
+        var response = await _request.GetAsync(
+            $"Estate/SearchEstates?" +
+            $"title={titleFilter}&" +
+            $"priceMin={priceMinFilter}&" +
+            $"priceMax={priceMaxFilter}&" +
+            $"categories={categoryFilter}");
+
+        await Expect(response).ToBeOKAsync();
+
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var paginatedEstates = await response.JsonAsync();
+        
+        if ((paginatedEstates?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedEstates?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.GreaterThan(0));
+                Assert.That(data.EnumerateArray().Count(), Is.GreaterThan(0));
+                
+                foreach (var estateJson in data.EnumerateArray())
+                {
+                    var title = estateJson.GetProperty("title").GetString();
+                    var price = estateJson.GetProperty("price").GetDouble();
+                    var category = estateJson.GetProperty("category").GetString();
+
+                    Assert.That(title, Is.Not.Null.And.Contains(titleFilter));
+                    Assert.That(price, Is.InRange(priceMinFilter, priceMaxFilter));
+                    Assert.That(category, Is.EqualTo(categoryFilter));
+                }
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+    
+    [Test]
+    public async Task SearchEstates_ShouldReturnEmptyList_WhenPriceLimitsAreNegative()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        const int priceMinFilter = int.MinValue;
+        const int priceMaxFilter = -1;
+
+        var response = await _request.GetAsync(
+            $"Estate/SearchEstates?" +
+            $"priceMin={priceMinFilter}&" +
+            $"priceMax={priceMaxFilter}");
+
+        await Expect(response).ToBeOKAsync();
+
+        if (response.Status != 200)
+        {
+            Assert.Fail($"Došlo je do greške: {response.Status} - {response.StatusText}");
+        }
+
+        var paginatedEstates = await response.JsonAsync();
+        
+        if ((paginatedEstates?.TryGetProperty("totalLength", out var totalLength) ?? false) &&
+            (paginatedEstates?.TryGetProperty("data", out var data) ?? false))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(totalLength.GetInt64(), Is.EqualTo(0));
+                Assert.That(data.EnumerateArray().Count(), Is.EqualTo(0));
+            });
+        }
+        else
+        {
+            Assert.Fail("Nisu pronađeni svi potrebni podaci u odgovoru.");
+        }
+    }
+
+    [Test]
+    public async Task SearchEstates_ShouldReturnError_WhenExceptionOccurs()
+    {
+        if (_request is null)
+        {
+            Assert.Fail("Greška u kontekstu.");
+            return;
+        }
+        
+        const string incorrectTitleRegularExpression = "(*";
+
+        var response = await _request.GetAsync($"Estate/SearchEstates?title={incorrectTitleRegularExpression}");
+        Assert.That(response.Status, Is.EqualTo(400));
+
+        var message = await response.TextAsync();
+        Assert.That(message, Is.EqualTo("Došlo je do greške prilikom pretrage nekretnina."));
+    }
+
+    #endregion
+
     #region GetUserFavoriteEstates
 
     [Test]
