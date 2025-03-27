@@ -338,7 +338,7 @@ public class EstateControllerTests : PlaywrightTest
         }
         else
         {
-            throw new Exception($"Greška pri kreiranju nekretnine. Server nije vratio ID.");
+            throw new Exception("Greška pri kreiranju nekretnine. Server nije vratio ID.");
         }
     }
 
