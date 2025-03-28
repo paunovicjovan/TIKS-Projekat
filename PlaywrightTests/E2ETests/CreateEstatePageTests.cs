@@ -74,8 +74,8 @@ public class CreateEstatePageTests : PageTest
     {
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
-            Headless = true,
-            // SlowMo = 500
+            Headless = false,
+            SlowMo = 1000
         });
 
         PageWithSettings = await BrowserWithSettings.NewPageAsync(new()

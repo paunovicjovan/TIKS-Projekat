@@ -75,7 +75,7 @@ public class LoginPageTests : PageTest
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
             Headless = false,
-            SlowMo = 800
+            SlowMo = 2000
         });
 
         PageWithSettings = await BrowserWithSettings.NewPageAsync(new()
