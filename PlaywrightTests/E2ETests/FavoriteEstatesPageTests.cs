@@ -1,3 +1,5 @@
+using PlaywrightTests.APITests;
+
 namespace PlaywrightTests.E2ETests;
 
 [TestFixture]
@@ -7,6 +9,7 @@ public class FavoriteEstatesPageTests : PageTest
     private IPage? PageWithSettings { get; set; }
     private IAPIRequestContext? Request { get; set; }
 
+    private string _username = string.Empty;
     private readonly string _email = $"{Guid.NewGuid():N}@gmail.com";
     private readonly string _password = "P@ssword123";
     private string _user1Token = string.Empty;
@@ -63,6 +66,7 @@ public class FavoriteEstatesPageTests : PageTest
             (authResponse?.TryGetProperty("role", out var role) ?? false))
         {
             _user1Token = token.GetString() ?? string.Empty;
+            _username = username.GetString() ?? string.Empty;
         }
 
         // kreiranje drugog korisnika koji ce da poseduje nekretnine koje ce prvi korisnik da doda u omiljene
@@ -127,7 +131,7 @@ public class FavoriteEstatesPageTests : PageTest
             IgnoreHTTPSErrors = true
         });
 
-        for (int j = 0; j < 5; j++)
+        for (int j = 1; j <= 20; j++)
         {
             var estateData = new
             {
@@ -222,7 +226,7 @@ public class FavoriteEstatesPageTests : PageTest
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
             Headless = false,
-            SlowMo = 5000
+            SlowMo = 1000
         });
 
         PageWithSettings = await BrowserWithSettings.NewPageAsync(new()
@@ -258,25 +262,64 @@ public class FavoriteEstatesPageTests : PageTest
             return;
         }
 
-        await Expect(PageWithSettings.GetByRole(AriaRole.Heading, new() { Name = "Omiljene nekretnine" })).ToBeVisibleAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = _username.ToUpper() }).ClickAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).HoverAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).ClickAsync();
 
-        var estateCards = PageWithSettings.Locator(".card");
-        if (await estateCards.CountAsync() > 0)
+        await Expect(PageWithSettings.Locator("h1")).ToContainTextAsync("Omiljene nekretnine");
+
+        await Task.Delay(1000);
+        await PageWithSettings.EvaluateAsync("window.scrollTo(0, document.body.scrollHeight)");
+        await Task.Delay(2000);
+
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(10);
+        await Expect(PageWithSettings.Locator("button.btn.btn-danger.ms-2")).ToHaveCountAsync(10);
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Go to next page" }).HoverAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Go to next page" }).ClickAsync();
+
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(10);
+        await Expect(PageWithSettings.Locator("button.btn.btn-danger.ms-2")).ToHaveCountAsync(10);
+
+        await Task.Delay(2000);
+    }
+
+    [Test]
+    [Order(2)]
+    public async Task ShowDetails_ShouldShowDetails_WhenShowDetailsButtonIsClicked()
+    {
+        if (PageWithSettings is null)
         {
-            await Expect(estateCards.First.Locator("img")).ToBeVisibleAsync();
-            await Expect(estateCards.First.Locator("h5.text-blue")).ToBeVisibleAsync();
-            await Expect(estateCards.First.Locator("p.text-golden")).ToBeVisibleAsync();
-            await Expect(estateCards.First.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToBeVisibleAsync();
-        }
-        else
-        {
-            await Expect(PageWithSettings.Locator("p.text-muted")).ToHaveTextAsync("Korisnik trenutno nema omiljenih nekretnina.");
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
         }
 
-        if (await PageWithSettings.Locator(".pagination").CountAsync() > 0)
-        {
-            await Expect(PageWithSettings.Locator(".pagination")).ToBeVisibleAsync();
-        }
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = _username.ToUpper() }).ClickAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).HoverAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).ClickAsync();
+
+        await Task.Delay(1000);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" }).First.HoverAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" }).First.ClickAsync();
+        await Task.Delay(4000);
+
+        await Expect(PageWithSettings.Locator("button.btn.btn-danger.me-2")).ToBeVisibleAsync();
+
+        await Expect(PageWithSettings.Locator("h1")).ToContainTextAsync("Luksuzna vila 1");
+
+        await Expect(PageWithSettings.GetByRole(AriaRole.Heading, new() { Name = "Cena" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Heading, new() { Name = "Veličina" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Heading, new() { Name = "Broj soba" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Heading, new() { Name = "Kategorija" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Heading, new() { Name = "Sprat" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Heading, new() { Name = "Kontakt" })).ToBeVisibleAsync();
+
+        await Expect(PageWithSettings.Locator("p:has-text('Vila sa bazenom')")).ToBeVisibleAsync();
+        await Expect(PageWithSettings.Locator("p:has-text('510000 €')")).ToBeVisibleAsync();
+        await Expect(PageWithSettings.Locator("p:has-text('260 m²')")).ToBeVisibleAsync();
+        await Expect(PageWithSettings.Locator("p:has-text('21')")).ToBeVisibleAsync();
+        await Expect(PageWithSettings.Locator("p:has-text('Kuća')")).ToBeVisibleAsync();
+        await Expect(PageWithSettings.Locator("p:has-text('N/A')")).ToBeVisibleAsync();
     }
 
     [TearDown]
