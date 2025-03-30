@@ -7,18 +7,19 @@ import EstateCard from "../../Components/EstateCard/EstateCard";
 import {Post} from "../../Interfaces/Post/Post";
 import {PostCard} from "../PostCard/PostCard";
 import {User} from "../../Interfaces/User/User.ts";
-import {getUserByIdAPI, updateUserAPI} from "../../Services/UserService.tsx";
+import {deleteUserAPI, getUserByIdAPI, updateUserAPI} from "../../Services/UserService.tsx";
 import toast from "react-hot-toast";
 import {useAuth} from "../../Context/useAuth.tsx";
 import styles from './UserProfile.module.css'
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faPhone, faUser} from "@fortawesome/free-solid-svg-icons";
 import {Pagination} from "../Pagination/Pagination.tsx";
+import Swal from "sweetalert2";
 
 export const UserProfile = () => {
   const {id} = useParams<{ id: string }>();
   const [profileUser, setProfileUser] = useState<User | null>(null);
-  const {user} = useAuth();
+  const {user, logout} = useAuth();
   const [estates, setEstates] = useState<Estate[]>([]);
   const [totalEstatesCount, setTotalEstatesCount] = useState<number>(0);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -123,6 +124,36 @@ export const UserProfile = () => {
     setNewPhoneNumber(profileUser?.phoneNumber || "");
   }
 
+  const confirmUserDeletion = async () => {
+    Swal.fire({
+      title: "Da li sigurno želite da obrišete nalog?",
+      text: "Ovime će biti obrisani svi vaši podaci, nekretnine, objave i komentari trajno.",
+      icon: "warning",
+      position: "top",
+      showCancelButton: true,
+      confirmButtonColor: "#8cc4da",
+      cancelButtonColor: "#d33",
+      cancelButtonText: "Otkaži",
+      confirmButtonText: "Obriši"
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        await handleDelete();
+      }
+    });
+  }
+
+  const handleDelete = async () => {
+    try {
+      const response = await deleteUserAPI();
+      if (response?.status == 204) {
+        toast.success("Uspešno brisanje naloga.");
+        logout();
+      }
+    } catch {
+      toast.error("Došlo je do greške prilikom brisanja naloga.");
+    }
+  };
+
   return (
     <div className={`container-fluid bg-beige d-flex justify-content-center`}>
       <div className={`container bg-beige `}>
@@ -169,11 +200,18 @@ export const UserProfile = () => {
                 </a>
               </p>
               {user?.id == profileUser?.id &&
-                <button
-                  className={`btn btn-sm text-white text-center rounded py-2 px-2 ${styles.dugme1} ${styles.slova}`}
-                  onClick={() => setIsEditing(true)}>
-                  Izmeni podatke
-                </button>
+                <div className={`d-flex gap-2`}>
+                  <button
+                    className={`btn btn-sm text-white text-center rounded py-2 px-2 ${styles.dugme1} ${styles.slova}`}
+                    onClick={() => setIsEditing(true)}>
+                    Izmeni podatke
+                  </button>
+                  <button
+                  className={`btn btn-sm btn-danger text-white text-center rounded py-2 px-2 ${styles.slova}`}
+                    onClick={confirmUserDeletion}>
+                    Obriši nalog
+                  </button>
+                </div>
               }
             </div>
           )}

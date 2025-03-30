@@ -52,6 +52,15 @@ export const updateUserAPI = async (newUsername: string, newPhoneNumber: string)
   }
 }
 
+export const deleteUserAPI = async () => {
+  try {
+    return await axios.delete(`${apiUrl}/Delete`);
+  } catch (error: any) {
+    toast.error(error.response?.data ?? "Greška pri brisanju naloga.");
+    return undefined;
+  }
+};
+
 export const addToFavoritesAPI = async (estateId: string) => {
   try {
     return await axios.post<boolean>(`${apiUrl}/AddToFavorites/${estateId}`);
