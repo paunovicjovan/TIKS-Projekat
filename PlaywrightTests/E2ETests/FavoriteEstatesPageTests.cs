@@ -1,5 +1,3 @@
-using PlaywrightTests.APITests;
-
 namespace PlaywrightTests.E2ETests;
 
 [TestFixture]
