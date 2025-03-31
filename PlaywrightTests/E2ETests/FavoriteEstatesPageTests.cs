@@ -320,6 +320,64 @@ public class FavoriteEstatesPageTests : PageTest
         await Expect(PageWithSettings.Locator("p:has-text('N/A')")).ToBeVisibleAsync();
     }
 
+    [Test]
+    [Order(3)]
+    public async Task RemoveEstateFromFavorite_ShouldRemoveEstateFromFavorite_WhenRemoveButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = _username.ToUpper() }).ClickAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).HoverAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).ClickAsync();
+
+        await Task.Delay(1000);
+        await PageWithSettings.Locator("button.btn.btn-danger.ms-2").First.HoverAsync();
+        await PageWithSettings.Locator("button.btn.btn-danger.ms-2").First.ClickAsync();
+        await Task.Delay(4000);
+    }
+
+    [Test]
+    [Order(4)]
+    public async Task PaginationChange_ShouldCountEstatesOnPage_WhenCountOfEstatesPerPageChange()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = _username.ToUpper() }).ClickAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).HoverAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).ClickAsync();
+
+        // provera za 10 nekretnina po stranici
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(10);
+        await PageWithSettings.EvaluateAsync("window.scrollTo(0, document.body.scrollHeight)");
+        await Task.Delay(1000);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Go to next page" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(10);
+
+        // provera za 5 nekretnina po stranici
+        await PageWithSettings.GetByText("10", new() { Exact = true }).ClickAsync();
+        await PageWithSettings.GetByRole(AriaRole.Option, new() { Name = "5" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(5);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Go to next page" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(5);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Go to next page" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(5);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Go to next page" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(5);
+
+        // provera za 20 nekretnina po stranici
+        await PageWithSettings.GetByText("5", new() { Exact = true }).ClickAsync();
+        await PageWithSettings.GetByRole(AriaRole.Option, new() { Name = "20" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(20);
+    }
+
     [TearDown]
     public async Task Teardown()
     {
