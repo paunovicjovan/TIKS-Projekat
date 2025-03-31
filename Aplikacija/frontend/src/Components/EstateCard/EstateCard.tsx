@@ -129,12 +129,12 @@ export const EstateCard = ({estate, loadEstates, canDelete = true, type, refresh
         { !isOwnEstate &&
           (
             canAddToFavorite ? (<>
-                <button className={`btn btn-outline-danger ms-2`} onClick={handleAddToFavorite}>
+                <button className={`btn btn-outline-danger ms-2`} data-testid="add-to-favorite-btn" onClick={handleAddToFavorite}>
                   <FontAwesomeIcon icon={faHeart}/>
                 </button>
               </>) :
               (<>
-                <button className={`btn btn-danger ms-2`} onClick={handleRemoveFromFavorite}>
+                <button className={`btn btn-danger ms-2`} data-testid="remove-from-favorite-btn" onClick={handleRemoveFromFavorite}>
                   <FontAwesomeIcon icon={faHeart}/>
                 </button>
               </>)
