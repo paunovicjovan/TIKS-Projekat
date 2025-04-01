@@ -175,35 +175,35 @@ public class ForumPageTests : PageTest
         });
         
         // kreiranje drugog korisnika koji sluzi za testiranje kreiranja objava
-        response = await Request.PostAsync("User/Register", new APIRequestContextOptions()
-        {
-            DataObject = new
-            {
-                Username = _username2,
-                Email = _email2,
-                Password = _password,
-                PhoneNumber = "061 123 1212"
-            }
-        });
-
-        if (response.Status != 200)
-        {
-            throw new Exception(
-                $"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
-        }
-
-        authResponse = await response.JsonAsync();
-
-        if ((authResponse?.TryGetProperty("id", out id) ?? false) &&
-            (authResponse?.TryGetProperty("username", out _) ?? false) &&
-            (authResponse?.TryGetProperty("email", out _) ?? false) &&
-            (authResponse?.TryGetProperty("phoneNumber", out _) ?? false) &&
-            (authResponse?.TryGetProperty("token", out token) ?? false) &&
-            (authResponse?.TryGetProperty("role", out _) ?? false))
-        {
-            _user2Id = id.GetString() ?? string.Empty;
-            _user2Token = token.GetString() ?? string.Empty;
-        }
+        // response = await Request.PostAsync("User/Register", new APIRequestContextOptions()
+        // {
+        //     DataObject = new
+        //     {
+        //         Username = _username2,
+        //         Email = _email2,
+        //         Password = _password,
+        //         PhoneNumber = "061 123 1212"
+        //     }
+        // });
+        //
+        // if (response.Status != 200)
+        // {
+        //     throw new Exception(
+        //         $"Došlo je do greške pri kreiranju test podataka: {response.Status} - {response.StatusText}");
+        // }
+        //
+        // authResponse = await response.JsonAsync();
+        //
+        // if ((authResponse?.TryGetProperty("id", out id) ?? false) &&
+        //     (authResponse?.TryGetProperty("username", out _) ?? false) &&
+        //     (authResponse?.TryGetProperty("email", out _) ?? false) &&
+        //     (authResponse?.TryGetProperty("phoneNumber", out _) ?? false) &&
+        //     (authResponse?.TryGetProperty("token", out token) ?? false) &&
+        //     (authResponse?.TryGetProperty("role", out _) ?? false))
+        // {
+        //     _user2Id = id.GetString() ?? string.Empty;
+        //     _user2Token = token.GetString() ?? string.Empty;
+        // }
     }
 
     [SetUp]
@@ -211,8 +211,8 @@ public class ForumPageTests : PageTest
     {
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
-            Headless = false,
-            SlowMo = 2000
+            // Headless = false,
+            // SlowMo = 2000
         });
 
         PageWithSettings = await BrowserWithSettings.NewPageAsync(new()
@@ -255,6 +255,86 @@ public class ForumPageTests : PageTest
         await Expect(PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Pretražite objave po naslovu" })).ToBeVisibleAsync();
     }
 
+    [Test]
+    [Order(2)]
+    public async Task CreatePost_ShouldDisplayErrorMessage_WhenDataIsInvalid()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+        
+        // oba polja prazna
+        await PageWithSettings.GotoAsync("http://localhost:5173/forum");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Objavi" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Molimo vas da popunite sve obavezne podatke.");
+        await Task.Delay(5000); // cekanje da se alert skloni
+        
+        // sadrzaj prazan
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Naslov:" }).FillAsync("Naslov");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Objavi" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Molimo vas da popunite sve obavezne podatke.");
+        await Task.Delay(5000);
+        
+        // naslov prazan
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Naslov:" }).FillAsync("");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Sadržaj:" }).FillAsync("Sadrzaj");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Objavi" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Molimo vas da popunite sve obavezne podatke.");
+    }
+
+    [Test]
+    [Order(3)]
+    public async Task CreatePost_ShouldCreatePost_WhenDataIsValid()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+        
+        await PageWithSettings.GotoAsync("http://localhost:5173/forum");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Naslov:" }).FillAsync("Naslov najnovije objave");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Sadržaj:" }).FillAsync("Sadrzaj najnovije objave");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Objavi" }).ClickAsync();
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("Naslov najnovije objave");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("Sadrzaj najnovije objave");
+    }
+
+    [Test]
+    [Order(4)]
+    public async Task SeePostDetails_ShouldRedirectUserToPostPage_WhenButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+        
+        await PageWithSettings.GotoAsync("http://localhost:5173/forum");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj detalje" }).First.ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync(new Regex("http://localhost:5173/forum/[a-f0-9]{24}"));
+    }
+    
     [TearDown]
     public async Task TearDown()
     {
@@ -309,38 +389,38 @@ public class ForumPageTests : PageTest
         }
         
         // brisanje drugog korisnika
-        headers = new Dictionary<string, string>()
-        {
-            { "Content-Type", "application/json" },
-            { "Authorization", $"Bearer {_user2Token}" }
-        };
-
-        Request = await Playwright.APIRequest.NewContextAsync(new()
-        {
-            BaseURL = "http://localhost:5244/api/",
-            ExtraHTTPHeaders = headers,
-            IgnoreHTTPSErrors = true
-        });
-
-        if (Request is null)
-            throw new Exception("Greška u kontekstu.");
-
-        try
-        {
-            var deleteUserResponse = await Request.DeleteAsync($"User/Delete");
-            if (deleteUserResponse.Status != 204)
-            {
-                throw new Exception($"Greška pri brisanju korisnika: {deleteUserResponse.Status}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
-        }
-        finally
-        {
-            await Request.DisposeAsync();
-            Request = null;
-        }
+    //     headers = new Dictionary<string, string>()
+    //     {
+    //         { "Content-Type", "application/json" },
+    //         { "Authorization", $"Bearer {_user2Token}" }
+    //     };
+    //
+    //     Request = await Playwright.APIRequest.NewContextAsync(new()
+    //     {
+    //         BaseURL = "http://localhost:5244/api/",
+    //         ExtraHTTPHeaders = headers,
+    //         IgnoreHTTPSErrors = true
+    //     });
+    //
+    //     if (Request is null)
+    //         throw new Exception("Greška u kontekstu.");
+    //
+    //     try
+    //     {
+    //         var deleteUserResponse = await Request.DeleteAsync($"User/Delete");
+    //         if (deleteUserResponse.Status != 204)
+    //         {
+    //             throw new Exception($"Greška pri brisanju korisnika: {deleteUserResponse.Status}");
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Console.WriteLine($"Greška pri brisanju podataka: {ex.Message}");
+    //     }
+    //     finally
+    //     {
+    //         await Request.DisposeAsync();
+    //         Request = null;
+    //     }
     }
 }

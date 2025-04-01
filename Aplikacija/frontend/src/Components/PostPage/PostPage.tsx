@@ -128,7 +128,7 @@ export const PostPage = () => {
       const response = await deletePostAPI(postId!);
       if (response?.status == 204) {
         toast.success("Uspešno brisanje objave.");
-        navigate('..');
+        navigate('/forum');
       }
     } catch {
       toast.error("Došlo je do greške prilikom brisanja objave.");
