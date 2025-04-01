@@ -57,11 +57,11 @@ public class EstateControllerTests : PlaywrightTest
         var authResponse = await response.JsonAsync();
 
         if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
-            (authResponse?.TryGetProperty("username", out var username) ?? false) &&
-            (authResponse?.TryGetProperty("email", out var email) ?? false) &&
-            (authResponse?.TryGetProperty("phoneNumber", out var phoneNumber) ?? false) &&
+            (authResponse?.TryGetProperty("username", out _) ?? false) &&
+            (authResponse?.TryGetProperty("email", out _) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out _) ?? false) &&
             (authResponse?.TryGetProperty("token", out var token) ?? false) &&
-            (authResponse?.TryGetProperty("role", out var role) ?? false))
+            (authResponse?.TryGetProperty("role", out _) ?? false))
         {
             _user1Id = id.GetString() ?? string.Empty;
             _user1Token = token.GetString() ?? string.Empty;
@@ -105,11 +105,11 @@ public class EstateControllerTests : PlaywrightTest
         authResponse = await response.JsonAsync();
 
         if ((authResponse?.TryGetProperty("id", out id) ?? false) &&
-            (authResponse?.TryGetProperty("username", out username) ?? false) &&
-            (authResponse?.TryGetProperty("email", out email) ?? false) &&
-            (authResponse?.TryGetProperty("phoneNumber", out phoneNumber) ?? false) &&
+            (authResponse?.TryGetProperty("username", out _) ?? false) &&
+            (authResponse?.TryGetProperty("email", out _) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out _) ?? false) &&
             (authResponse?.TryGetProperty("token", out token) ?? false) &&
-            (authResponse?.TryGetProperty("role", out role) ?? false))
+            (authResponse?.TryGetProperty("role", out _) ?? false))
         {
             _user2Id = id.GetString() ?? string.Empty;
             _user2Token = token.GetString() ?? string.Empty;
@@ -254,11 +254,11 @@ public class EstateControllerTests : PlaywrightTest
         authResponse = await response.JsonAsync();
 
         if ((authResponse?.TryGetProperty("id", out id) ?? false) &&
-            (authResponse?.TryGetProperty("username", out username) ?? false) &&
-            (authResponse?.TryGetProperty("email", out email) ?? false) &&
-            (authResponse?.TryGetProperty("phoneNumber", out phoneNumber) ?? false) &&
+            (authResponse?.TryGetProperty("username", out _) ?? false) &&
+            (authResponse?.TryGetProperty("email", out _) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out _) ?? false) &&
             (authResponse?.TryGetProperty("token", out token) ?? false) &&
-            (authResponse?.TryGetProperty("role", out role) ?? false))
+            (authResponse?.TryGetProperty("role", out _) ?? false))
         {
             _user3Id = id.GetString() ?? string.Empty;
             _user3Token = token.GetString() ?? string.Empty;

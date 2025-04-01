@@ -19,7 +19,6 @@ public class UserProfilePageTests : PageTest
     private readonly string _username2 = Guid.NewGuid().ToString("N");
     private readonly string _email2 = $"{Guid.NewGuid():N}@gmail.com";
     private readonly string _phoneNumber2 = "065 456 4545";
-    private string _user2Token = string.Empty;
 
     private readonly string _password = "P@ssword123";
 
@@ -105,7 +104,6 @@ public class UserProfilePageTests : PageTest
             (authResponse?.TryGetProperty("role", out _) ?? false))
         {
             _user2Id = id.GetString() ?? string.Empty;
-            _user2Token = token.GetString() ?? string.Empty;
         }
 
         // kreiranje nekretnina prvog korisnika
