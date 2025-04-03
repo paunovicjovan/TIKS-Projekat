@@ -191,8 +191,8 @@ public class UserProfilePageTests : PageTest
     {
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
-            Headless = true,
-            // SlowMo = 2000
+            Headless = false,
+            SlowMo = 1000
         });
 
         PageWithSettings = await BrowserWithSettings.NewPageAsync(new()

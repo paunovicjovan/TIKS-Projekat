@@ -1,14 +1,14 @@
-import {useNavigate} from "react-router-dom";
-import {Estate} from "../../Interfaces/Estate/Estate.ts";
-import {useAuth} from "../../Context/useAuth.tsx";
-import {deleteEstateAPI} from "../../Services/EstateService.tsx";
+import { useNavigate } from "react-router-dom";
+import { Estate } from "../../Interfaces/Estate/Estate.ts";
+import { useAuth } from "../../Context/useAuth.tsx";
+import { deleteEstateAPI } from "../../Services/EstateService.tsx";
 import toast from "react-hot-toast";
 import styles from './EstateCard.module.css'
 import Swal from "sweetalert2";
-import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
-import {faHeart} from '@fortawesome/free-solid-svg-icons';
-import {useEffect, useState} from "react";
-import {addToFavoritesAPI, canAddEstateToFavoriteAPI, removeFromFavoritesAPI} from "../../Services/UserService.tsx";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faHeart } from '@fortawesome/free-solid-svg-icons';
+import { useEffect, useState } from "react";
+import { addToFavoritesAPI, canAddEstateToFavoriteAPI, removeFromFavoritesAPI } from "../../Services/UserService.tsx";
 
 interface EstateCardProps {
   estate: Estate;
@@ -19,9 +19,9 @@ interface EstateCardProps {
   onRemoveFromFavorite?: (estateId: string) => void;
 }
 
-export const EstateCard = ({estate, loadEstates, canDelete = true, type, refreshOnDeleteEstate, onRemoveFromFavorite}: EstateCardProps) => {
+export const EstateCard = ({ estate, loadEstates, canDelete = true, type, refreshOnDeleteEstate, onRemoveFromFavorite }: EstateCardProps) => {
   const navigate = useNavigate();
-  const {user} = useAuth();
+  const { user } = useAuth();
 
   const [canAddToFavorite, setCanAddToFavorite] = useState(true);
   const [isOwnEstate, setIsOwnEstate] = useState<boolean>(false);
@@ -29,10 +29,10 @@ export const EstateCard = ({estate, loadEstates, canDelete = true, type, refresh
   useEffect(() => {
     checkIfCanAddToFavorite();
 
-    if(estate.userId) {
+    if (estate.userId) {
       setIsOwnEstate(estate.userId == user?.id);
     }
-    else if(estate.user) {
+    else if (estate.user) {
       setIsOwnEstate(estate.user.id == user?.id);
     }
     else
@@ -80,7 +80,7 @@ export const EstateCard = ({estate, loadEstates, canDelete = true, type, refresh
   };
 
   const handleChange = () => {
-    navigate(`/estate-page/${estate.id}`, {state: {setEdit: true}});
+    navigate(`/estate-page/${estate.id}`, { state: { setEdit: true } });
   };
 
   const handleNavigate = () => {
@@ -113,7 +113,7 @@ export const EstateCard = ({estate, loadEstates, canDelete = true, type, refresh
   };
 
   return (
-    <div className={`card my-2 p-2 shadow`} style={{width: "18rem"}}>
+    <div className={`card my-2 p-2 shadow`} style={{ width: "18rem" }}>
       <img
         src={`${import.meta.env.VITE_SERVER_URL}/${estate.images[0]}`}
         className={`card-img-top`}
@@ -123,19 +123,19 @@ export const EstateCard = ({estate, loadEstates, canDelete = true, type, refresh
         <h5 className={`text-blue`}>{estate.title}</h5>
         <p className={`text-golden`}>{estate.price}&nbsp;€</p>
         <button className={`btn btn-sm text-white text-center rounded py-2 px-2 ${styles.dugme} ${styles.slova}`}
-                onClick={handleNavigate}>
+          onClick={handleNavigate}>
           Pogledaj Detalje
         </button>
-        { !isOwnEstate &&
+        {!isOwnEstate &&
           (
             canAddToFavorite ? (<>
-                <button className={`btn btn-outline-danger ms-2`} data-testid="add-to-favorite-btn" onClick={handleAddToFavorite}>
-                  <FontAwesomeIcon icon={faHeart}/>
-                </button>
-              </>) :
+              <button className={`btn btn-outline-danger ms-2`} data-testid="add-to-favorite-btn" onClick={handleAddToFavorite}>
+                <FontAwesomeIcon icon={faHeart} />
+              </button>
+            </>) :
               (<>
                 <button className={`btn btn-danger ms-2`} data-testid="remove-from-favorite-btn" onClick={handleRemoveFromFavorite}>
-                  <FontAwesomeIcon icon={faHeart}/>
+                  <FontAwesomeIcon icon={faHeart} />
                 </button>
               </>)
           )}
@@ -150,7 +150,7 @@ export const EstateCard = ({estate, loadEstates, canDelete = true, type, refresh
                 </button>
               }
               <button className={`btn btn-sm text-gray text-center rounded py-2 px-2 ${styles.dugme2} ${styles.slova}`}
-                      onClick={handleChange}>
+                onClick={handleChange}>
                 Izmeni
               </button>
             </div>
