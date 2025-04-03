@@ -59,10 +59,10 @@ export const CommentCard = ({comment:commentFromProps, onDelete}: Props) => {
             onChange={(e) => setNewContent(e.target.value)}
           />
           <div className={`d-flex justify-content-start`}>
-            <button onClick={handleSave} disabled={!newContent} className={`btn btn-sm me-2 text-beige ${styles.dugme1}`}>
+            <button data-testid={"save-comment-changes-btn"} onClick={handleSave} disabled={!newContent} className={`btn btn-sm me-2 text-beige ${styles.dugme1}`}>
               <FontAwesomeIcon icon={faSave}/>
             </button>
-            <button onClick={handleCancel} className={`btn btn-sm text-beige ${styles.dugme2}`}>
+            <button data-testid={"cancel-comment-changes-btn"} onClick={handleCancel} className={`btn btn-sm text-beige ${styles.dugme2}`}>
               <FontAwesomeIcon icon={faTimes}/>
             </button>
           </div>
@@ -74,11 +74,11 @@ export const CommentCard = ({comment:commentFromProps, onDelete}: Props) => {
       {user?.id === comment.author.id && (
         <div className={`mt-2 d-flex justify-content-start`}>
           {!isEditing && (
-            <button onClick={() => setIsEditing(true)} className={`btn btn-sm me-2 text-beige ${styles.dugme1}`}>
+            <button data-testid={"edit-comment-btn"} onClick={() => setIsEditing(true)} className={`btn btn-sm me-2 text-beige ${styles.dugme1}`}>
               <FontAwesomeIcon icon={faEdit}/>
             </button>
           )}
-          <button onClick={() => onDelete(comment.id)} className={`btn btn-sm text-beige ${styles.dugme2}`}>
+          <button data-testid={"delete-comment-btn"} onClick={() => onDelete(comment.id)} className={`btn btn-sm text-beige ${styles.dugme2}`}>
             <FontAwesomeIcon icon={faTrash}/>
           </button>
         </div>
