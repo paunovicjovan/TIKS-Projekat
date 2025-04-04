@@ -529,6 +529,110 @@ public class PostPageTests : PageTest
         await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/forum");
     }
 
+    [Test]
+    [Order(8)]
+    public async Task CreateComment_CreateButtonShouldBeDisabled_WhenTextareaIsEmpty()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        // login sa nalogom autora objave
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+        
+        await PageWithSettings.GotoAsync($"http://localhost:5173/forum/{_testPostId}");
+        
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Kreiraj komentar" })).ToBeDisabledAsync();
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite komentar" }).FillAsync("Komentar");
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Kreiraj komentar" })).Not.ToBeDisabledAsync();
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite komentar" }).FillAsync("");
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Kreiraj komentar" })).ToBeDisabledAsync();
+    }
+
+    [Test]
+    [Order(9)]
+    public async Task CreateComment_ShouldDisplayErrorMessage_WhenCommentContentIsTooLong()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        // login sa nalogom autora objave
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+        
+        await PageWithSettings.GotoAsync($"http://localhost:5173/forum/{_testPostId}");
+
+        var tooLongCommentContent = new string('a', 1001);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite komentar" }).FillAsync(tooLongCommentContent);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Kreiraj komentar" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Komentar mora sadržati između 1 i 1000 karaktera.");
+    }
+
+    [Test]
+    [Order(10)]
+    public async Task CreateComment_ShouldCreateComment_WhenCommentContentIsValid()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        // login sa nalogom autora objave
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+        
+        await PageWithSettings.GotoAsync($"http://localhost:5173/forum/{_testPostId}");
+        
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite komentar" }).FillAsync("Test komentar");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Kreiraj komentar" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Uspešno dodat komentar.");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("Test komentar");
+    }
+
+    [Test]
+    [Order(11)]
+    public async Task UpdateComment_ShouldCancelChanges_WhenCancelButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        // login sa nalogom autora objave
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+        
+        await PageWithSettings.GotoAsync($"http://localhost:5173/forum/{_testPostId}");
+        
+        await PageWithSettings.GetByTestId("edit-comment-btn").First.ClickAsync();
+        await Expect(PageWithSettings.GetByTestId("save-comment-changes-btn")).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByTestId("cancel-comment-changes-btn")).ToBeVisibleAsync();
+        await PageWithSettings.GetByTestId("cancel-comment-changes-btn").ClickAsync();
+        await Expect(PageWithSettings.GetByTestId("edit-comment-btn").First).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByTestId("save-comment-changes-btn")).Not.ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByTestId("cancel-comment-changes-btn")).Not.ToBeVisibleAsync();
+    }
+
     [TearDown]
     public async Task TearDown()
     {
