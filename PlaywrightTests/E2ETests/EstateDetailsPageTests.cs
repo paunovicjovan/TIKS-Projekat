@@ -370,6 +370,151 @@ public class EstateDetailsPageTests : PageTest
 
     [Test]
     [Order(4)]
+    public async Task UpdateEstate_ShouldDisplayErrorMessage_WhenSomeDataIsInvalid()
+    {
+        if(PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+
+        // unos neispravnog naziva (prazan string)
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" }).ClickAsync();
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Sačuvaj" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Molimo vas da popunite sva polja.");
+        await Task.Delay(5000); // cekanje da se skloni error message
+
+        // unos neispravnog opisa (prazan string)
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" }).ClickAsync();
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Ispravan naziv");
+        await PageWithSettings.Locator("textarea.form-control").First.FillAsync("");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Sačuvaj" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Molimo vas da popunite sva polja.");
+        await Task.Delay(5000); // cekanje da se skloni error message
+
+        // unos neispravne cene (prazan string)
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" }).ClickAsync();
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Ispravan naziv");
+        await PageWithSettings.Locator("textarea.form-control").First.FillAsync("Ispravan opis");
+        await PageWithSettings.Locator("input.form-control").Nth(1).FillAsync("");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Sačuvaj" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Molimo vas da popunite sva polja.");
+        await Task.Delay(5000); // cekanje da se skloni error message
+
+        // unos neispravnog broja soba (prazan string)
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" }).ClickAsync();
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Ispravan naziv");
+        await PageWithSettings.Locator("textarea.form-control").First.FillAsync("Ispravan opis");
+        await PageWithSettings.Locator("input.form-control").Nth(1).FillAsync("550000");
+        await PageWithSettings.Locator("input.form-control").Nth(2).FillAsync("");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Sačuvaj" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Molimo vas da popunite sva polja.");
+        await Task.Delay(5000); // cekanje da se skloni error message
+
+        // unos neispravne povrsine (prazan string)
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" }).ClickAsync();
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Ispravan naziv");
+        await PageWithSettings.Locator("textarea.form-control").First.FillAsync("Ispravan opis");
+        await PageWithSettings.Locator("input.form-control").Nth(1).FillAsync("550000");
+        await PageWithSettings.Locator("input.form-control").Nth(2).FillAsync("30");
+        await PageWithSettings.Locator("input.form-control").Nth(3).FillAsync("");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Sačuvaj" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Molimo vas da popunite sva polja.");
+        await Task.Delay(5000); // cekanje da se skloni error message
+    }
+
+    [Test]
+    [Order(5)]
+    public async Task UpdateEstate_ShouldExitEditMode_WhenCancelButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" }).ClickAsync();
+
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Novi naziv");
+        await PageWithSettings.Locator("textarea.form-control").First.FillAsync("Novi opis");
+        await PageWithSettings.Locator("input.form-control").Nth(1).FillAsync("600000");
+        await PageWithSettings.Locator("input.form-control").Nth(2).FillAsync("30");
+        await PageWithSettings.Locator("input.form-control").Nth(3).FillAsync("260");
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Otkaži" }).ClickAsync();
+
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("Luksuzna vila");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("Vila sa bazenom");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("500000");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("20");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("250");
+
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" })).ToBeVisibleAsync();
+    }
+
+    [Test]
+    [Order(6)]
+    public async Task UpdateEstate_ShouldChangeData_WhenDataIsValid()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" }).ClickAsync();
+
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Novi naziv");
+        await PageWithSettings.Locator("textarea.form-control").First.FillAsync("Novi opis");
+        await PageWithSettings.Locator("input.form-control").Nth(1).FillAsync("600000");
+        await PageWithSettings.Locator("input.form-control").Nth(2).FillAsync("30");
+        await PageWithSettings.Locator("input.form-control").Nth(3).FillAsync("260");
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Sačuvaj" }).ClickAsync();
+
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Nekretnina je uspešno ažurirana.");
+
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("Novi naziv");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("Novi opis");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("600000");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("30");
+        await Expect(PageWithSettings.Locator("#root")).ToContainTextAsync("260");
+
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" })).ToBeVisibleAsync();
+    }
+
+    [Test]
+    [Order(7)]
     public async Task DeleteEstate_ShouldCancelDeletion_WhenCancelButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -396,7 +541,7 @@ public class EstateDetailsPageTests : PageTest
     }
 
     [Test]
-    [Order(5)]
+    [Order(8)]
     public async Task DeleteEstate_ShouldDeleteEstate_WhenConfirmButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -422,7 +567,7 @@ public class EstateDetailsPageTests : PageTest
     }
 
     [Test]
-    [Order(6)]
+    [Order(9)]
     public async Task PostPaginationChange_ShouldCountPostsOnPage_WhenCountOfPostsPerPageChange()
     {
         if (PageWithSettings is null)
@@ -456,7 +601,7 @@ public class EstateDetailsPageTests : PageTest
     }
 
     [Test]
-    [Order(7)]
+    [Order(10)]
     public async Task SeePostDetails_ShouldRedirectUserToPostPage_WhenButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -478,7 +623,7 @@ public class EstateDetailsPageTests : PageTest
     }
 
     [Test]
-    [Order(8)]
+    [Order(11)]
     public async Task CreatePost_ShouldDisplayErrorMessage_WhenDataIsInvalid()
     {
         if (PageWithSettings is null)
@@ -513,7 +658,7 @@ public class EstateDetailsPageTests : PageTest
     }
 
     [Test]
-    [Order(9)]
+    [Order(12)]
     public async Task CreatePost_ShouldCreatePost_WhenDataIsValid()
     {
         if (PageWithSettings is null)
