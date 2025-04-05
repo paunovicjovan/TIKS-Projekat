@@ -212,8 +212,8 @@ public class EstateDetailsPageTests : PageTest
     {
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
-            Headless = false,
-            SlowMo = 1000
+            // Headless = false,
+            // SlowMo = 1000
         });
 
         PageWithSettings = await BrowserWithSettings.NewPageAsync(new()
