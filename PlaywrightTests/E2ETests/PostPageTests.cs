@@ -261,7 +261,7 @@ public class PostPageTests : PageTest
     {
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
-            // Headless = false,
+            Headless = true,
             // SlowMo = 1000
         });
 

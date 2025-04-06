@@ -223,8 +223,8 @@ public class FavoriteEstatesPageTests : PageTest
     {
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
-            Headless = false,
-            SlowMo = 1000
+            Headless = true,
+            //SlowMo = 1000
         });
 
         PageWithSettings = await BrowserWithSettings.NewPageAsync(new()
@@ -322,26 +322,6 @@ public class FavoriteEstatesPageTests : PageTest
 
     [Test]
     [Order(3)]
-    public async Task RemoveEstateFromFavorite_ShouldRemoveEstateFromFavorite_WhenRemoveButtonIsClicked()
-    {
-        if (PageWithSettings is null)
-        {
-            Assert.Fail("Greška, stranica ne postoji.");
-            return;
-        }
-
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = _username.ToUpper() }).ClickAsync();
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).HoverAsync();
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).ClickAsync();
-
-        await Task.Delay(1000);
-        await PageWithSettings.Locator("button.btn.btn-danger.ms-2").First.HoverAsync();
-        await PageWithSettings.Locator("button.btn.btn-danger.ms-2").First.ClickAsync();
-        await Task.Delay(4000);
-    }
-
-    [Test]
-    [Order(4)]
     public async Task PaginationChange_ShouldCountEstatesOnPage_WhenCountOfEstatesPerPageChange()
     {
         if (PageWithSettings is null)
@@ -376,6 +356,26 @@ public class FavoriteEstatesPageTests : PageTest
         await PageWithSettings.GetByText("5", new() { Exact = true }).ClickAsync();
         await PageWithSettings.GetByRole(AriaRole.Option, new() { Name = "20" }).ClickAsync();
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(20);
+    }
+
+    [Test]
+    [Order(4)]
+    public async Task RemoveEstateFromFavorite_ShouldRemoveEstateFromFavorite_WhenRemoveButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = _username.ToUpper() }).ClickAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).HoverAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "OMILJENE NEKRETNINE" }).ClickAsync();
+
+        await Task.Delay(1000);
+        await PageWithSettings.Locator("button.btn.btn-danger.ms-2").First.HoverAsync();
+        await PageWithSettings.Locator("button.btn.btn-danger.ms-2").First.ClickAsync();
+        await Task.Delay(4000);
     }
 
     [TearDown]
