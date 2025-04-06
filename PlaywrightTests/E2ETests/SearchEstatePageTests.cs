@@ -64,12 +64,12 @@ public class SearchEstatePageTests : PageTest
 
         var authResponse = await response.JsonAsync();
 
-        if ((authResponse?.TryGetProperty("id", out var id) ?? false) &&
-            (authResponse?.TryGetProperty("username", out var username) ?? false) &&
-            (authResponse?.TryGetProperty("email", out var email) ?? false) &&
-            (authResponse?.TryGetProperty("phoneNumber", out var phoneNumber) ?? false) &&
+        if ((authResponse?.TryGetProperty("id", out _) ?? false) &&
+            (authResponse?.TryGetProperty("username", out _) ?? false) &&
+            (authResponse?.TryGetProperty("email", out _) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out _) ?? false) &&
             (authResponse?.TryGetProperty("token", out var token) ?? false) &&
-            (authResponse?.TryGetProperty("role", out var role) ?? false))
+            (authResponse?.TryGetProperty("role", out _) ?? false))
         {
             _user1Token = token.GetString() ?? string.Empty;
         }
@@ -113,12 +113,12 @@ public class SearchEstatePageTests : PageTest
 
         authResponse = await response.JsonAsync();
 
-        if ((authResponse?.TryGetProperty("id", out id) ?? false) &&
-            (authResponse?.TryGetProperty("username", out username) ?? false) &&
-            (authResponse?.TryGetProperty("email", out email) ?? false) &&
-            (authResponse?.TryGetProperty("phoneNumber", out phoneNumber) ?? false) &&
+        if ((authResponse?.TryGetProperty("id", out _) ?? false) &&
+            (authResponse?.TryGetProperty("username", out _) ?? false) &&
+            (authResponse?.TryGetProperty("email", out _) ?? false) &&
+            (authResponse?.TryGetProperty("phoneNumber", out _) ?? false) &&
             (authResponse?.TryGetProperty("token", out token) ?? false) &&
-            (authResponse?.TryGetProperty("role", out role) ?? false))
+            (authResponse?.TryGetProperty("role", out _) ?? false))
         {
             _user2Token = token.GetString() ?? string.Empty;
         }
@@ -355,7 +355,7 @@ public class SearchEstatePageTests : PageTest
 
     [Test]
     [Order(5)]
-    public async Task SeeEstasteDetails_ShouldRedirectUserToEstateDatilsPage_WhenButtonIsClicked()
+    public async Task SeeEstateDetails_ShouldRedirectUserToEstateDetailsPage_WhenButtonIsClicked()
     {
         if (PageWithSettings is null)
         {

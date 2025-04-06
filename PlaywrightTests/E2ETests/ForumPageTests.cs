@@ -190,6 +190,12 @@ public class ForumPageTests : PageTest
                 Height = 720
             }
         });
+        
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
     }
 
     [Test]
@@ -201,12 +207,6 @@ public class ForumPageTests : PageTest
             Assert.Fail("Greška, stranica ne postoji.");
             return;
         }
-
-        await PageWithSettings.GotoAsync("http://localhost:5173/login");
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email);
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
-        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
 
         await PageWithSettings.GotoAsync("http://localhost:5173/forum");
         await Expect(PageWithSettings.GetByRole(AriaRole.Heading, new() { Name = "Kreiraj Objavu" }))
@@ -229,12 +229,6 @@ public class ForumPageTests : PageTest
             Assert.Fail("Greška, stranica ne postoji.");
             return;
         }
-
-        await PageWithSettings.GotoAsync("http://localhost:5173/login");
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email);
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
-        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
 
         // oba polja prazna
         await PageWithSettings.GotoAsync("http://localhost:5173/forum");
@@ -268,12 +262,6 @@ public class ForumPageTests : PageTest
             return;
         }
 
-        await PageWithSettings.GotoAsync("http://localhost:5173/login");
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email);
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
-        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
-
         await PageWithSettings.GotoAsync("http://localhost:5173/forum");
         await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Naslov:" })
             .FillAsync("Naslov najnovije objave");
@@ -294,12 +282,6 @@ public class ForumPageTests : PageTest
             return;
         }
 
-        await PageWithSettings.GotoAsync("http://localhost:5173/login");
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email);
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
-        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
-
         await PageWithSettings.GotoAsync("http://localhost:5173/forum");
         await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj detalje" }).First.ClickAsync();
         await Expect(PageWithSettings).ToHaveURLAsync(new Regex("http://localhost:5173/forum/[a-f0-9]{24}"));
@@ -314,12 +296,7 @@ public class ForumPageTests : PageTest
             Assert.Fail("Greška, stranica ne postoji.");
             return;
         }
-
-        await PageWithSettings.GotoAsync("http://localhost:5173/login");
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email);
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
-        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+        
         await PageWithSettings.GotoAsync("http://localhost:5173/forum");
 
         // objava bez nekretnine
@@ -346,12 +323,6 @@ public class ForumPageTests : PageTest
             Assert.Fail("Greška, stranica ne postoji.");
             return;
         }
-
-        await PageWithSettings.GotoAsync("http://localhost:5173/login");
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email);
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
-        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
 
         await PageWithSettings.GotoAsync($"http://localhost:5173/forum");
 

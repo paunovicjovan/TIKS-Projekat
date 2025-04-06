@@ -247,11 +247,7 @@ public class EstateDetailsPageTests : PageTest
         await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
         await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
 
-        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).HoverAsync();
-        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
-
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" }).First.HoverAsync();
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" }).First.ClickAsync();
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
 
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" })).ToBeVisibleAsync();
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" })).ToBeVisibleAsync();
@@ -294,11 +290,7 @@ public class EstateDetailsPageTests : PageTest
         await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
         await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
 
-        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).HoverAsync();
-        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
-
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" }).First.HoverAsync();
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" }).First.ClickAsync();
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
 
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Ažuriraj" })).Not.ToBeVisibleAsync();
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" })).Not.ToBeVisibleAsync();
@@ -341,11 +333,7 @@ public class EstateDetailsPageTests : PageTest
         await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
         await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
 
-        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).HoverAsync();
-        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
-
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" }).First.HoverAsync();
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" }).First.ClickAsync();
+        await PageWithSettings.GotoAsync($"http://localhost:5173/estate-details/{_estateId}");
 
         // dodavanje u omiljene
         await PageWithSettings.Locator("button.btn.btn-outline-danger.me-2").ClickAsync();
@@ -708,6 +696,8 @@ public class EstateDetailsPageTests : PageTest
             { "Authorization", $"Bearer {_user1Token}" }
         };
 
+        // var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        
         Request = await Playwright.APIRequest.NewContextAsync(new()
         {
             BaseURL = "http://localhost:5244/api/",
