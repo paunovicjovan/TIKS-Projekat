@@ -202,8 +202,8 @@ public class SearchEstatePageTests : PageTest
     {
         BrowserWithSettings = await Playwright.Chromium.LaunchAsync(new()
         {
-            Headless = false,
-            SlowMo = 1000
+            Headless = true,
+            //SlowMo = 1000
         });
 
         PageWithSettings = await BrowserWithSettings.NewPageAsync(new()
@@ -355,6 +355,51 @@ public class SearchEstatePageTests : PageTest
 
     [Test]
     [Order(5)]
+    public async Task SearchEstates_ShouldFilterEstates_WhenFilterButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+
+        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
+
+        // Provera ako se unese samo naziv
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Luksuzna vila 14");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pretraži" }).ClickAsync();
+        await Expect(PageWithSettings.GetByText("Luksuzna vila 14")).ToHaveCountAsync(1);
+
+        // provera ako se unese naziv i minimalna cena
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Luksuzna vila");
+        await PageWithSettings.Locator("input.form-control").Nth(1).FillAsync("650000");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pretraži" }).ClickAsync();
+        await Expect(PageWithSettings.GetByText("Luksuzna vila")).ToHaveCountAsync(6);
+
+        // provera ako se unese naziv, minimalna i maximalna cena
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Luksuzna vila");
+        await PageWithSettings.Locator("input.form-control").Nth(1).FillAsync("650000");
+        await PageWithSettings.Locator("input.form-control").Nth(2).FillAsync("680000");
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pretraži" }).ClickAsync();
+        await Expect(PageWithSettings.GetByText("Luksuzna vila")).ToHaveCountAsync(4);
+
+        // provera ako se unese naziv, minimalna i maximalna cena i kategorija (kuca)
+        await PageWithSettings.Locator("input.form-control").First.FillAsync("Luksuzna vila");
+        await PageWithSettings.Locator("input.form-control").Nth(1).FillAsync("650000");
+        await PageWithSettings.Locator("input.form-control").Nth(2).FillAsync("680000");
+        await PageWithSettings.GetByRole(AriaRole.Checkbox, new() { Name = "Kuća" }).CheckAsync();
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pretraži" }).ClickAsync();
+        await Expect(PageWithSettings.GetByText("Luksuzna vila")).ToHaveCountAsync(4);
+    }
+
+    [Test]
+    [Order(6)]
     public async Task SeeEstateDetails_ShouldRedirectUserToEstateDetailsPage_WhenButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -364,7 +409,7 @@ public class SearchEstatePageTests : PageTest
         }
 
         await PageWithSettings.GotoAsync("http://localhost:5173/login");
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email2);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
         await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
         await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
         await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
@@ -373,6 +418,85 @@ public class SearchEstatePageTests : PageTest
 
         await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje", Exact = true }).First.ClickAsync();
         await Expect(PageWithSettings).ToHaveURLAsync(new Regex($"http://localhost:5173/estate-details/{_estateId}"));
+    }
+
+    [Test]
+    [Order(7)]
+    public async Task UpdateEstate_ShouldRedirectOwnerToEstateDetailsPage_WhenButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+
+        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Izmeni", Exact = true }).First.ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync(new Regex($"http://localhost:5173/estate-page/{_estateId}"));
+    }
+
+    [Test]
+    [Order(8)]
+    public async Task DeleteEstate_ShouldCancelDeletion_WhenCancelButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+
+        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši", Exact = true }).First.ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Dialog, new() { Name = "Da li sigurno želite da obrišete nekretninu?" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.Locator("#swal2-html-container")).ToContainTextAsync("Uz nekretninu će biti obrisani i sve objave vezane za nju!");
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Otkaži" })).ToBeVisibleAsync();
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Otkaži" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" }).First).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Dialog, new() { Name = "Da li sigurno želite da obrišete nekretninu?" })).Not.ToBeVisibleAsync();
+    }
+
+    [Test]
+    [Order(9)]
+    public async Task DeleteEstate_ShouldDeleteEstate_WhenConfirmButtonIsClicked()
+    {
+        if (PageWithSettings is null)
+        {
+            Assert.Fail("Greška, stranica ne postoji.");
+            return;
+        }
+
+        await PageWithSettings.GotoAsync("http://localhost:5173/login");
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
+        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
+        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
+
+        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši", Exact = true }).First.ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Dialog, new() { Name = "Da li sigurno želite da obrišete nekretninu?" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.Locator("#swal2-html-container")).ToContainTextAsync("Uz nekretninu će biti obrisani i sve objave vezane za nju!");
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Otkaži" })).ToBeVisibleAsync();
+
+        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" }).ClickAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Status)).ToContainTextAsync("Nekretnina uspešno obrisana.");
     }
 
     [TearDown]
