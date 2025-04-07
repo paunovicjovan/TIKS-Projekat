@@ -21,7 +21,7 @@ interface EstateCardProps {
 
 export const EstateCard = ({ estate, loadEstates, canDelete = true, type, refreshOnDeleteEstate, onRemoveFromFavorite }: EstateCardProps) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoggedIn } = useAuth();
 
   const [canAddToFavorite, setCanAddToFavorite] = useState(true);
   const [isOwnEstate, setIsOwnEstate] = useState<boolean>(false);
@@ -40,6 +40,9 @@ export const EstateCard = ({ estate, loadEstates, canDelete = true, type, refres
   }, [])
 
   const checkIfCanAddToFavorite = async () => {
+    if(!isLoggedIn())
+      return;
+
     try {
       const response = await canAddEstateToFavoriteAPI(estate.id!);
       if (response?.status == 200) {
@@ -126,7 +129,7 @@ export const EstateCard = ({ estate, loadEstates, canDelete = true, type, refres
           onClick={handleNavigate}>
           Pogledaj Detalje
         </button>
-        {!isOwnEstate &&
+        {isLoggedIn() && !isOwnEstate &&
           (
             canAddToFavorite ? (<>
               <button className={`btn btn-outline-danger ms-2`} data-testid="add-to-favorite-btn" onClick={handleAddToFavorite}>
