@@ -348,7 +348,18 @@ public class SearchEstatePageTests : PageTest
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(5);
 
         // provera za 20 nekretnina po stranici
-        await PageWithSettings.GetByText("5", new() { Exact = true }).ClickAsync();
+        var paginationButtons = PageWithSettings.GetByRole(AriaRole.Button).Filter(new() { HasTextRegex = new Regex(@"^\d+$") });
+        int pageCount = await paginationButtons.CountAsync();
+
+        if (pageCount < 5)
+        {
+            await PageWithSettings.GetByText("5", new() { Exact = true }).ClickAsync();
+        }
+        else
+        {
+            await PageWithSettings.GetByText("5", new() { Exact = true }).Nth(1).ClickAsync();
+        }
+
         await PageWithSettings.GetByRole(AriaRole.Option, new() { Name = "20" }).ClickAsync();
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(20);
     }
