@@ -220,42 +220,10 @@ public class SearchEstatePageTests : PageTest
             }
         });
     }
-
+    
     [Test]
     [Order(1)]
-    public async Task CheckIfCorrectElementsAreDisplayedForEstateOwner()
-    {
-        if (PageWithSettings is null)
-        {
-            Assert.Fail("Greška, stranica ne postoji.");
-            return;
-        }
-
-        await PageWithSettings.GotoAsync("http://localhost:5173/login");
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite e-mail" }).FillAsync(_email1);
-        await PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Unesite lozinku" }).FillAsync(_password);
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Prijavite Se" }).ClickAsync();
-        await Expect(PageWithSettings).ToHaveURLAsync("http://localhost:5173/");
-
-        await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
-
-        await Expect(PageWithSettings.Locator("h3")).ToContainTextAsync("Pretraga Nekretnina");
-        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pretraži" })).ToBeVisibleAsync();
-        
-        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(10);
-        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" })).ToHaveCountAsync(10);
-        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Izmeni" })).ToHaveCountAsync(10);
-
-        await PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Go to next page" }).ClickAsync();
-
-        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(10);
-        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Obriši" })).ToHaveCountAsync(10);
-        await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Izmeni" })).ToHaveCountAsync(10);
-    }
-
-    [Test]
-    [Order(2)]
-    public async Task CheckIfCorrectElementsAreDisplayedForEstateVisitor()
+    public async Task CheckIfCorrectElementsAreDisplayedOnPage()
     {
         if (PageWithSettings is null)
         {
@@ -271,7 +239,15 @@ public class SearchEstatePageTests : PageTest
 
         await PageWithSettings.Locator("#navbarResponsive").GetByRole(AriaRole.Link, new() { Name = "NEKRETNINE" }).ClickAsync();
 
+        // forma sa filterima
         await Expect(PageWithSettings.Locator("h3")).ToContainTextAsync("Pretraga Nekretnina");
+        await Expect(PageWithSettings.GetByRole(AriaRole.Textbox, new() { Name = "Naziv:" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Spinbutton, new() { Name = "Minimalna cena:" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Spinbutton, new() { Name = "Maksimalna cena:" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Checkbox, new() { Name = "Kuća" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Checkbox, new() { Name = "Stan" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Checkbox, new() { Name = "Kancelarija" })).ToBeVisibleAsync();
+        await Expect(PageWithSettings.GetByRole(AriaRole.Checkbox, new() { Name = "Maloprodaja" })).ToBeVisibleAsync();
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pretraži" })).ToBeVisibleAsync();
         
         await Expect(PageWithSettings.GetByRole(AriaRole.Button, new() { Name = "Pogledaj Detalje" })).ToHaveCountAsync(10);
@@ -284,7 +260,7 @@ public class SearchEstatePageTests : PageTest
     }
 
     [Test]
-    [Order(3)]
+    [Order(2)]
     public async Task AddOrRemoveEstateFromFavorites_ShouldAddOrRemoveEstateFromFavorites_WhenButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -314,7 +290,7 @@ public class SearchEstatePageTests : PageTest
     }
 
     [Test]
-    [Order(4)]
+    [Order(3)]
     public async Task PaginationChange_ShouldCountEstatesOnPage_WhenCountOfEstatesPerPageChange()
     {
         if (PageWithSettings is null)
@@ -365,7 +341,7 @@ public class SearchEstatePageTests : PageTest
     }
 
     [Test]
-    [Order(5)]
+    [Order(4)]
     public async Task SearchEstates_ShouldFilterEstates_WhenFilterButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -410,7 +386,7 @@ public class SearchEstatePageTests : PageTest
     }
 
     [Test]
-    [Order(6)]
+    [Order(5)]
     public async Task SeeEstateDetails_ShouldRedirectUserToEstateDetailsPage_WhenButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -432,7 +408,7 @@ public class SearchEstatePageTests : PageTest
     }
 
     [Test]
-    [Order(7)]
+    [Order(6)]
     public async Task UpdateEstate_ShouldRedirectOwnerToEstateDetailsPage_WhenButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -454,7 +430,7 @@ public class SearchEstatePageTests : PageTest
     }
 
     [Test]
-    [Order(8)]
+    [Order(7)]
     public async Task DeleteEstate_ShouldCancelDeletion_WhenCancelButtonIsClicked()
     {
         if (PageWithSettings is null)
@@ -483,7 +459,7 @@ public class SearchEstatePageTests : PageTest
     }
 
     [Test]
-    [Order(9)]
+    [Order(8)]
     public async Task DeleteEstate_ShouldDeleteEstate_WhenConfirmButtonIsClicked()
     {
         if (PageWithSettings is null)
