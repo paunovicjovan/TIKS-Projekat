@@ -38,6 +38,7 @@ export const Pagination = ({ totalLength, onPaginateChange, currentPage, perPage
     setPageSize(event.target.value as number);
     setPage(1);
   };
+  
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px", justifyContent: "center", marginTop: "10px" }}>
